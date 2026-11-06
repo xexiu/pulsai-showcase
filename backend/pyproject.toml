@@ -102,6 +102,7 @@ ignore = [
 ]
 # X / y / X_train is the standard ML naming; numpy / polars are runtime imports; training entry points take 6-8 params
 "src/infrastructure/ml/**/*.py" = ["N806", "N803", "TC002", "TC003", "PLR0913", "PLR0912"]
+"src/domain/services/edge_lifecycle/capital_cert_headline.py" = ["UP047"]  # owes a rename that ripples into a sibling module
 "src/infrastructure/ai/ai_provider_base.py" = ["ARG002"]  # the base signature every provider overrides
 "src/infrastructure/ai/ai_provider_mock.py" = ["ARG002", "S311", "E501"]  # canned replies; random is not crypto here
 "src/domain/enums.py" = ["UP037"]

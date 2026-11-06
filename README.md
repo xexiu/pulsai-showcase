@@ -136,7 +136,7 @@ flowchart LR
 
 | | |
 |---|---|
-| backend | 166 source modules, **745 tests** (pytest), `mypy --strict` clean, ruff clean |
+| backend | 185 source modules, **930 tests** (pytest), `mypy --strict` clean, ruff clean |
 | frontend | 133 source files, **421 tests** (vitest), `tsc --noEmit` clean under the strict config |
 | CI | lint, format, types and tests for both stacks; SonarQube Cloud (Python + TypeScript); CodeQL; OpenSSF Scorecard; TruffleHog over the full history; Dependabot; every action pinned to a commit SHA |
 
@@ -146,7 +146,7 @@ flowchart LR
 # backend (Python 3.14, uv)
 cd backend
 uv sync
-uv run pytest            # 745 tests, no Redis or database needed (fakeredis)
+uv run pytest            # 930 tests, no Redis or database needed (fakeredis)
 uv run mypy && uv run ruff check .
 
 # frontend (Node 22, pnpm)
