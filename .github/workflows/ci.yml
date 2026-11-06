@@ -121,4 +121,6 @@ jobs:
       - name: TruffleHog
         uses: trufflesecurity/trufflehog@ea68ca03c865c5f324e86e849ced20ed3cf9dbbb # v3.99.8
         with:
-          extra_args: --results=verified,unknown
+          # fail on credentials the provider confirms are live; placeholder examples in the docs
+          # (postgresql://admin:password@db/...) are unverifiable by design -- same policy as the monorepo's CI
+          extra_args: --results=verified

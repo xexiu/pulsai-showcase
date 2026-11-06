@@ -33,8 +33,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from src.infrastructure.config.settings_sections.settings_core import SettingsCoreMixin
 from src.infrastructure.config.settings_sections.settings_integrations import SettingsIntegrationsMixin
 from src.infrastructure.config.settings_sections.settings_ops import SettingsOpsMixin
-from src.infrastructure.config.settings_sections.settings_security import SettingsSecurityMixin
-from src.infrastructure.config.settings_sections.settings_trading import SettingsTradingMixin
 from src.infrastructure.config.settings_sections.settings_ops_features import (
     DEVELOPMENT_BACKTEST_RESPONSE_CACHE_HISTORICAL_TTL_SECONDS,
 )
@@ -47,7 +45,9 @@ from src.infrastructure.config.settings_sections.settings_security import (
     DEFAULT_NON_DEV_ACCESS_TOKEN_EXPIRE_MINUTES,
     INSECURE_DEFAULT_SECRET_KEY,
     MAX_NON_DEV_ACCESS_TOKEN_EXPIRE_MINUTES,
+    SettingsSecurityMixin,
 )
+from src.infrastructure.config.settings_sections.settings_trading import SettingsTradingMixin
 from src.shared.utils.email_assets import is_local_email_asset_base
 
 # Re-export module-level constants (backwards compatibility)
