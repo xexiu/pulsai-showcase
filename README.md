@@ -60,3 +60,7 @@ Python 3.14, dependencies pinned in [`backend/pyproject.toml`](backend/pyproject
 - **TruffleHog** — secret scan of the full git history.
 
 See [`SECURITY.md`](SECURITY.md) for how to report a vulnerability.
+
+## License
+
+[MIT](LICENSE)
