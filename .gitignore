@@ -13,3 +13,4 @@ node_modules/
 .pnpm-store/
 web/coverage/
 *.tsbuildinfo
+.scratch/

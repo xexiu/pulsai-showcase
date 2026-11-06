@@ -54,6 +54,26 @@ flowchart LR
     class WS,RQ,HTTP,AI,ML,IND,RD,SHARED here
 ```
 
+## Domain-driven layering
+
+The backend follows DDD where the business has real complexity (trading, signals, ML lifecycle) and stays plain
+elsewhere ([`docs/04-structural/DDD_PATTERNS.md`](docs/04-structural/DDD_PATTERNS.md) says where it applies and where
+it is overkill). Dependencies point inward: the domain imports nothing from the outer layers, and infrastructure
+reaches it through ports. In the monorepo these boundaries are **enforced** by `import-linter` contracts on every
+verify run, not only drawn.
+
+```mermaid
+flowchart TB
+    API["api<br/>FastAPI routes, request/response schemas,<br/>ETag / If-Match"] --> APP
+    APP["application<br/>use cases, services, DTOs"] --> DOM
+    INFRA["infrastructure<br/>Redis, PostgreSQL, LLM providers,<br/>ML training, exchanges"] -->|implements ports| DOM
+    APP --> PORTS
+    DOM["domain<br/>entities, value objects, policies,<br/>indicators, pure services"]
+    PORTS["domain ports<br/>(Protocols)"] --- DOM
+    SHARED["shared<br/>constants, exceptions, error codes"]
+    API & APP & INFRA & DOM --> SHARED
+```
+
 ## What is in it
 
 Every module below was exported **together with everything it imports and every test that covers it**, so the
@@ -121,6 +141,70 @@ flowchart LR
 - **Judgement stays human.** A generated suggestion is a proposal, never an authority. Comments and docs are checked against the
   running system before they are trusted.
 
+### The agent tooling itself: [`.claude/`](.claude) and [`.agents/skills`](.agents/skills)
+
+The gates above run at commit time. A second layer runs **inside the coding agent's loop**: Claude Code hooks that see
+each tool call before it happens and each final answer before it is sent.
+
+```mermaid
+sequenceDiagram
+    participant A as coding agent
+    participant G as _hook_mode_gate.py
+    participant H as hooks
+    participant T as tool (Bash / Write / Edit)
+    A->>G: PreToolUse: tool and arguments
+    G->>H: run the guards for the current mode
+    H-->>A: refused, with the reason and the correct path
+    A->>G: PreToolUse: the corrected call
+    G->>T: allowed
+    T-->>H: PostToolUse: evidence recorded (tests run, files measured)
+    A->>G: Stop: the final answer
+    G->>H: compare each statement with the recorded evidence
+    H-->>A: send it back with what is missing, or let it through
+```
+
+| | monorepo | shipped here |
+|---|---|---|
+| hooks | 153, with 152 test files | **11 guards + the central mode gate**, 7 helpers, **396 tests** (CI job `agent guardrails`) |
+| registrations | 184 | 16, in [`.claude/settings.json`](.claude/settings.json); every one routes through the mode gate |
+| skills | 39 | 10: `tdd`, `grill-me`, `diagnosing-bugs`, `domain-modeling`, `code-review`, `improve-codebase-architecture`, `feature-slice-tdd`, `handoff`, `to-spec`, `research` |
+| rules | 50 | 6, the policies these hooks enforce |
+
+The hooks shipped here, each with the failure that produced it written in its docstring:
+
+| hook | refuses |
+|---|---|
+| `scoped_stage_guard` | `git add -A` or a directory: stage the files you wrote, never someone else's work in progress |
+| `no_verify_push_guard` | a push that skips the verify hooks (a push to `master` deploys production) |
+| `json_write_integrity_guard` | a JSON write that would leave a torn file |
+| `reinvent_wheel_guard` | a new file that duplicates or forks an existing source-of-truth module |
+| `keep_in_sync_guard` | a "keep these two in sync" promise with no parity test |
+| `investigate_before_gate_guard` | changing a threshold or gate before measuring the data it judges |
+| `outside_repo_python_guard` | code written where no test, linter or review will ever see it |
+| `verify_judge_guard` | citing a comment or doc as proof without checking it against the running system |
+| `incomplete_measurement_guard`, `latency_needs_status_or_count_guard` | a latency or timing figure with no count, status code or number of runs beside it |
+| `architect_role_guard` | stopping after a source change with no test written and no gate run |
+
+`_hook_mode_gate.py` is the single decision point: hooks run in autonomous mode and stay silent while planning, and the
+few that prevent irreversible loss run in every mode.
+
+## Documentation
+
+Decisions are written down before or as they are made:
+
+- **[Architecture decision records](docs/08-adr)**: 25 ADRs, for example
+  [monorepo](docs/08-adr/ADR-001-monorepo.md), [FastAPI over Node.js](docs/08-adr/ADR-002-fastapi-over-nodejs.md),
+  [XGBoost over LSTM](docs/08-adr/ADR-003-xgboost-over-lstm.md),
+  [AI provider strategy](docs/08-adr/ADR-010-ai-provider-strategy.md),
+  [backtesting architecture](docs/08-adr/ADR-013-backtesting-architecture.md),
+  [spec-driven development](docs/08-adr/ADR-021-spec-driven-development-stance.md),
+  [API idempotency](docs/08-adr/ADR-022-api-idempotency-posture.md).
+- **[Engineering standards](docs/04-structural)**: coding standards, DDD patterns, architecture patterns (each with its
+  *anti-fit*: when it will cost you), naming conventions, concurrency invariants, and the map of which gate enforces
+  which standard.
+- **[Testing](docs/05-testing)** and **[security](docs/07-security)**: coverage requirements, test fixtures, security
+  guidelines and the backend security audit.
+
 ## Design decisions and trade-offs
 
 | decision | why | what it costs |
@@ -159,7 +243,7 @@ pnpm --filter web test   # 421 tests
 
 | | |
 |---|---|
-| backend | 2,094 Python modules in `domain` / `application` / `infrastructure` / `api` layers, 2,266 test modules |
+| backend | 2,094 Python modules in `domain` / `application` / `infrastructure` / `api` layers; **24,362 tests** (33,852 with the research lab) |
 | frontend | 3,247 TypeScript source files, 1,568 test files |
 | database | PostgreSQL, 110 Alembic migrations |
 | decisions | 33 architecture decision records |

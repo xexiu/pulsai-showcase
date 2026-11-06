@@ -1,0 +1,56 @@
+{
+  "name_collision_min_score": 2,
+  "investigate_window_seconds": 1800,
+  "extend_not_clone": [
+    {
+      "id": "kryptera_findbest_sot",
+      "module_markers": ["cert_kryptera_sma_full_findbest"],
+      "body_any": ["build_fifo_oos_exit_grid", "CryptoBacktester", "FULL_LEV"],
+      "name_any": ["findbest", "combo_cert", "capital_x_exit", "_cert_clone"]
+    },
+    {
+      "id": "x_exit_grid_sot",
+      "module_markers": ["run_edge_capital_x_exit_grid"],
+      "body_any": ["build_fifo_oos_exit_grid", "CAPITAL_MODES", "ModelSpec"],
+      "name_any": ["capital_x_exit", "combo_cert", "x_exit_clone"]
+    },
+    {
+      "id": "hunt_loop_sot",
+      "module_markers": ["hunt_loop_runner", "stamp_staged_capital_certification"],
+      "body_any": ["stamp_staged_capital_certification", "execute_lifecycle_decision"],
+      "name_any": ["hunt_loop_clone", "loop_runner_fork"]
+    },
+    {
+      "id": "gate_overlay_combo_sot",
+      "module_markers": ["cert_gate_overlay_combo_findbest"],
+      "body_any": ["build_fifo_oos_exit_grid", "align_oos_signals_to_market"],
+      "name_any": ["combo_findbest", "combo_cert"]
+    },
+    {
+      "id": "keep_materialize_holdout_sot",
+      "module_markers": [
+        "materialize_edge_lab_keep_candidates",
+        "materialize_edge_lab_ml_inventory_holdout",
+        "materialize_edge_lab_ml_inventory"
+      ],
+      "body_any": ["test_start_date", "holdout", "KEEP_CANDIDATE", "edge_lab_keep_candidate"],
+      "name_any": ["materialize_keep", "keep_candidate_clone", "full_window_materialize"]
+    },
+    {
+      "id": "causal_signal_sot",
+      "module_markers": ["causal_signal", "causal_outcome_gate", "probe_positions_n_vs_n1"],
+      "body_any": [
+        "causal_outcome_gate",
+        "probe_positions_n_vs_n1",
+        "leaky_outcome_gate_for_fixture"
+      ],
+      "name_any": ["causal_signal_clone", "lookahead_probe_fork", "leak_probe_clone"]
+    },
+    {
+      "id": "cache_aside_batch_sot",
+      "module_markers": ["cache_aside_json_batch", "cache_aside_json", "cache_aside"],
+      "body_any": ["cache_aside_json_batch", "get_json", "set_json", "TTL_HEADLINE"],
+      "name_any": ["headline_.*cache", "verdict_cache", "finbert_cache", "impact_cache"]
+    }
+  ]
+}

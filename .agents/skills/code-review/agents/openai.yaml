@@ -1,0 +1,5 @@
+interface:
+  display_name: 'Code Review (Standards+Spec)'
+  short_description: 'Two-axis Standards+Spec review since a fixed point'
+policy:
+  allow_implicit_invocation: false

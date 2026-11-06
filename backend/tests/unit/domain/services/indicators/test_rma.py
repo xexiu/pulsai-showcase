@@ -11,15 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.domain.services.indicators.rma import (
-    atr_first_seeded,
-    atr_simple,
-    atr_sma_seeded,
-    rma_first_seeded,
-    rma_mean_seeded,
-    rma_seeded_at,
-    rma_sma_seeded,
-)
+from src.domain.services.indicators.rma import atr_first_seeded, atr_simple, atr_sma_seeded, rma_first_seeded, rma_mean_seeded, rma_seeded_at, rma_sma_seeded
 from src.domain.services.indicators.trailing import trailing_mean
 from src.domain.services.indicators.true_range import true_range
 

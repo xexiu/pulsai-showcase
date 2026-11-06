@@ -1,0 +1,150 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|mcp__gortex__edit_file|mcp__gortex__batch_edit|mcp__gortex__write_file|mcp__gortex__edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/investigate_before_gate_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|mcp__gortex__write_file|mcp__gortex__edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/reinvent_wheel_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/no_verify_push_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|mcp__gortex__edit_file|mcp__gortex__write_file|mcp__gortex__batch_edit|mcp__gortex__edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/keep_in_sync_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/scoped_stage_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|mcp__gortex__write_file|mcp__gortex__edit_file|mcp__gortex__batch_edit|mcp__gortex__edit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/outside_repo_python_guard.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/incomplete_measurement_guard.py\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify_judge_guard.py\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/architect_role_guard.py\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/latency_needs_status_or_count_guard.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/investigate_before_gate_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/reinvent_wheel_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit|Bash|mcp__gortex__edit_file|mcp__gortex__batch_edit|mcp__gortex__write_file|mcp__gortex__edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/architect_role_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Edit|Write|mcp__gortex__edit_file|mcp__gortex__batch_edit|mcp__gortex__write_file|mcp__gortex__edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify_judge_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|mcp__gortex__edit_file|mcp__gortex__batch_edit|mcp__gortex__write_file|mcp__gortex__edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/investigate_before_gate_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|mcp__gortex__edit_file|mcp__gortex__write_file|mcp__gortex__batch_edit|mcp__gortex__edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/_hook_mode_gate.py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/json_write_integrity_guard.py\""
+          }
+        ]
+      }
+    ]
+  }
+}
