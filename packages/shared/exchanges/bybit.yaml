@@ -1,0 +1,88 @@
+# =============================================================================
+# Bybit V5 — per-venue data config
+# =============================================================================
+#
+# Single source of truth for Bybit's REST data:
+#   - Base URLs (separate mainnet + testnet hosts)
+#   - Path constants per market (swap + spot)
+#   - Auth header names + passphrase=false + recv_window default
+#   - Envelope shape (retCode = 0 success, result data path)
+#   - Proxy allowlist (both demo and mainnet hostnames)
+#
+# This file is read at module init by:
+#   - BE  (Python):  src/shared/exchanges/load.py via PyYAML
+#   - FE  (TS):      packages/shared/src/exchanges/bybit.ts hand-mirrors it
+#                    (validated against schema; parity asserted by tests).
+#
+# @see docs/04-structural/EPIC_A_EXCHANGE_SOT_AUDIT.md §3
+# =============================================================================
+
+schema_version: 1
+id: bybit
+display_name: Bybit
+default_fee_rate: 0.001
+
+# Bybit V5 splits mainnet + testnet across hostnames (unlike Bitget which
+# reuses one host and flags demo via productType).
+base_urls:
+  mainnet: https://api.bybit.com
+  testnet: https://api-testnet.bybit.com
+
+# Bybit V5 USDT-M perpetual swap.
+swap:
+  # `category=linear` rides every swap request (USDT-M perps).
+  category: linear
+  # `accountType=UNIFIED` keys the wallet-balance lookup — Bybit's unified
+  # margin model pools spot + futures equity under one row.
+  account_type: UNIFIED
+  window_caps:
+    # Bybit V5 closed-pnl defaults to 7 days; callers MUST set startTime
+    # for longer lookbacks. Capped at 730 days per the V5 docs but our
+    # FE keeps it at 89 to match Bitget's effective ceiling.
+    history_days: 89
+  paths:
+    place_order: /v5/order/create
+    cancel_order: /v5/order/cancel
+    open_orders: /v5/order/realtime
+    orders_history: /v5/order/history
+    position_history: /v5/position/closed-pnl
+    positions: /v5/position/list
+    account: /v5/account/wallet-balance
+
+# Bybit V5 spot.
+spot:
+  category: spot
+  paths:
+    # Bybit V5 unifies spot + swap on the same endpoints; category disambiguates.
+    place_order: /v5/order/create
+    cancel_order: /v5/order/cancel
+    open_orders: /v5/order/realtime
+
+# REST authentication.
+auth:
+  header_names:
+    api_key: X-BAPI-API-KEY
+    signature: X-BAPI-SIGN
+    timestamp: X-BAPI-TIMESTAMP
+    recv_window: X-BAPI-RECV-WINDOW
+  needs_passphrase: false
+  # `'2'` = HMAC-SHA256 per V5 docs.
+  sign_type: '2'
+  default_recv_window_ms: 5000
+
+# Bybit V5 JSON envelope: { retCode, retMsg, result }.
+# retCode = 0 means success; non-zero = error.
+envelope:
+  success_code_path: retCode
+  success_code_value: 0
+  data_path: result
+
+# Hostnames the Edge CORS proxy is allowed to forward to.
+proxy:
+  hostnames:
+    - api.bybit.com
+    - api-testnet.bybit.com
+
+# Unauthenticated paths consumed by the admin observability page only.
+public_paths:
+  ping: /v5/market/time

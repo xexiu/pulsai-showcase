@@ -1,0 +1,84 @@
+# =============================================================================
+# OKX V5 — per-venue data config (scaffolding; signer/client = follow-up)
+# =============================================================================
+#
+# Phase 6 of Epic A ships the YAML + parity tests but does NOT flip
+# ``EXCHANGE_CAPABILITIES.okx.liveDirect`` to true. The yaml proves the
+# schema scales to a third venue (mirror of Bitget's auth shape); the
+# signer + response-mapping + WS parsing modules come in a follow-up
+# slice when a real OKX account is available for curl-verification.
+#
+# Field values reference the OKX V5 public docs:
+#   - https://www.okx.com/docs-v5/en/#overview-introduction
+#   - https://www.okx.com/docs-v5/en/#overview-rest-authentication
+#
+# Sandbox is selected per-request via the ``x-simulated-trading: 1`` header
+# (same pattern as Bitget's ``paptrading: 1``) — OKX V5 mainnet + demo
+# share a host.
+#
+# @see docs/04-structural/EPIC_A_EXCHANGE_SOT_AUDIT.md §3
+# =============================================================================
+
+schema_version: 1
+id: okx
+display_name: OKX
+default_fee_rate: 0.001
+
+# Mainnet + demo share the same host on OKX V5 (selected via per-request
+# header). Same pattern as Bitget.
+base_urls:
+  mainnet: https://www.okx.com
+  testnet: https://www.okx.com
+
+# OKX V5 USDT-M perpetual swap.
+swap:
+  window_caps:
+    # OKX V5 closed-positions endpoint: 3-month default window per docs.
+    # Capped at 89 here to match the cross-venue effective ceiling.
+    history_days: 89
+  paths:
+    place_order: /api/v5/trade/order
+    cancel_order: /api/v5/trade/cancel-order
+    open_orders: /api/v5/trade/orders-pending
+    orders_history: /api/v5/trade/orders-history
+    position_history: /api/v5/account/positions-history
+    positions: /api/v5/account/positions
+    account: /api/v5/account/balance
+
+# OKX V5 spot — unified endpoints under /api/v5/trade.
+spot:
+  paths:
+    place_order: /api/v5/trade/order
+    cancel_order: /api/v5/trade/cancel-order
+    open_orders: /api/v5/trade/orders-pending
+
+# REST authentication — OK-ACCESS-* headers + passphrase requirement.
+# Signature = base64(HMAC_SHA256(secret, timestamp + METHOD + path + body))
+auth:
+  header_names:
+    api_key: OK-ACCESS-KEY
+    signature: OK-ACCESS-SIGN
+    timestamp: OK-ACCESS-TIMESTAMP
+    passphrase: OK-ACCESS-PASSPHRASE
+  needs_passphrase: true
+  # OKX V5 demo trading flag — per-request header, post-sign splice (not
+  # part of signature material, same as Bitget's paptrading).
+  demo_flag_header:
+    name: x-simulated-trading
+    value: '1'
+
+# OKX V5 JSON envelope: { code, msg, data }
+# code = "0" (string!) means success; non-zero string = error.
+envelope:
+  success_code_path: code
+  success_code_value: '0'
+  data_path: data
+
+# Hostnames the Edge CORS proxy is allowed to forward to.
+proxy:
+  hostnames:
+    - www.okx.com
+
+# Unauthenticated paths consumed by the admin observability page only.
+public_paths:
+  ping: /api/v5/public/time

@@ -5,61 +5,197 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/xexiu/pulsai-showcase/badge)](https://scorecard.dev/viewer/?uri=github.com/xexiu/pulsai-showcase)
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=xexiu_pulsai-showcase&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=xexiu_pulsai-showcase)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=xexiu_pulsai-showcase&metric=coverage)](https://sonarcloud.io/summary/new_code?id=xexiu_pulsai-showcase)
+[![Security](https://sonarcloud.io/api/project_badges/measure?project=xexiu_pulsai-showcase&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=xexiu_pulsai-showcase)
 [![Maintainability](https://sonarcloud.io/api/project_badges/measure?project=xexiu_pulsai-showcase&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=xexiu_pulsai-showcase)
 
-A self-contained, runnable slice of the **PulsAI** backend — a FastAPI + Celery platform for market-data
-analytics and ML research. The full product lives in a private monorepo; this repository is the part of it a
-reviewer can clone, run and test in two minutes.
+A runnable, curated slice of **PulsAI**: a full-stack platform (FastAPI + Celery + PostgreSQL + Redis, Next.js +
+React + TypeScript) for market-data analytics, ML research and LLM-assisted explanations. The full product is a
+private monorepo; this repository is the part of it a reviewer can clone, run and test in a few minutes.
 
 > Educational project. Nothing here is financial advice.
 
-## What is in the slice
+## Architecture
 
-Four production modules, together with **everything they import** and every test that covers them:
+The full system, with the parts this repository contains highlighted:
 
-| module | what it does | the engineering point |
+```mermaid
+flowchart LR
+    subgraph Client["Next.js + React (TypeScript)"]
+        UI["charts, dashboards"]
+        WS["realtime candles<br/>(WebSocket lifecycle)"]
+        RQ["TanStack Query<br/>data hooks"]
+    end
+    subgraph API["FastAPI (domain / application / infrastructure / api)"]
+        HTTP["REST + ETag / If-Match"]
+        AI["LLM layer<br/>RAG + provider fallback"]
+        ML["ML validation<br/>backtest metrics"]
+        IND["indicators<br/>(numba kernels)"]
+    end
+    subgraph Workers["Celery workers"]
+        JOBS["training, backtests,<br/>news ingestion"]
+    end
+    SHARED["@pulsai/shared<br/>types + golden vectors"]
+    PG[("PostgreSQL")]
+    RD[("Redis<br/>cache-aside, TTL locks")]
+    LLM[("LLM providers")]
+
+    UI --> RQ --> HTTP
+    WS --> HTTP
+    HTTP --> AI --> LLM
+    HTTP --> ML --> IND
+    HTTP --> RD
+    HTTP --> PG
+    JOBS --> PG
+    JOBS --> RD
+    SHARED -.-> Client
+    SHARED -.-> API
+
+    classDef here fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    class WS,RQ,HTTP,AI,ML,IND,RD,SHARED here
+```
+
+## What is in it
+
+Every module below was exported **together with everything it imports and every test that covers it**, so the
+repository builds, type-checks and tests on its own.
+
+| area | where | what to look at |
 |---|---|---|
-| [`cache_aside.py`](backend/src/infrastructure/cache/cache_aside.py) | read-through Redis cache for JSON values, single and batch (`MGET`) | **fail-open on Redis faults only**: an outage degrades to the loader, but a `TypeError` in our own code still raises instead of becoming a permanent silent cache miss |
-| [`redis_ttl_lock.py`](backend/src/infrastructure/cache/redis_ttl_lock.py) | `SET NX EX` lock with a per-holder token | each holder writes its own token and release is a `WATCH`/`MULTI` compare-and-delete, so a holder whose TTL lapsed can never delete the next holder's lock (a race reproduced, then fixed test-first) |
-| [`http_concurrency.py`](backend/src/api/http_concurrency.py) | strong ETags and `If-Match` → `412 Precondition Failed` | optimistic concurrency for HTTP updates, no lost writes |
-| [`ccxt_error_mapping.py`](backend/src/shared/ccxt_error_mapping.py) | exchange-library exceptions → stable error codes + safe messages | venue text never reaches users: no leaked IDs, i18n-able, a contract clients can rely on |
+| **LLM integration** | [`backend/src/infrastructure/ai`](backend/src/infrastructure/ai) | one provider interface over Claude, Gemini, Groq, OpenRouter, Together, Ollama and a mock; **runtime fallback** across providers; a **RAG context builder** with registered sections (indicators, news, signals, technical levels); a parser that validates the model's structured conclusion; a model choice backed by an offline evaluation (DeepSeek-V3 ~89% vs FinBERT ~44% macro accuracy on news impact) |
+| **RAG policy and guardrails** | [`backend/config/ai-sources.yaml`](backend/config/ai-sources.yaml) | curated sources with trust levels, a prohibited-sources list, token limits, "refuse if no data", required citations, no-advice rule, prompt templates, and the design decisions behind them |
+| **Quality gates for AI-generated code** | [`backend/src/lib/quality_gates`](backend/src/lib/quality_gates) | AST-based detectors that run on every commit in the monorepo: **one concept, one definition** (a function, enum or constant re-written under a new name is refused), expression and constant clones, a touched-file ratchet (whoever edits a file pays its debt down), standards rules |
+| **ML validation and backtest metrics** | [`backend/src/infrastructure/ml`](backend/src/infrastructure/ml) | walk-forward validation, quant metrics, honest mark-to-market drawdown, trading objectives |
+| **Indicators and performance** | [`backend/src/domain/services/indicators`](backend/src/domain/services/indicators), [`backend/src/shared/utils/numba_jit.py`](backend/src/shared/utils/numba_jit.py) | RSI, Hurst exponent, Garman-Klass volatility, chandelier exit; numba-compiled kernels |
+| **Resilient infrastructure** | [`backend/src/infrastructure/cache`](backend/src/infrastructure/cache), [`backend/src/api/http_concurrency.py`](backend/src/api/http_concurrency.py) | fail-open Redis cache-aside (faults degrade to the loader; our own bugs still raise); a TTL lock with per-holder tokens and a `WATCH`/`MULTI` compare-and-delete release; ETag / `If-Match` optimistic concurrency; exchange errors mapped to stable codes so venue text never reaches users |
+| **Frontend** | [`web/src`](web/src) | React 19 + TypeScript (strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`): a real-time candle stream over WebSocket with its socket lifecycle, an equity-curve chart, chart data helpers, TanStack Query |
+| **Shared contracts** | [`packages/shared`](packages/shared) | types and constants shared by the TypeScript frontend and the Python backend; **golden test vectors** ([`test-vectors/`](packages/shared/test-vectors)) pin the shared client-order-id format, and in the monorepo both the Python and the TypeScript implementation are tested against them, so the two cannot drift |
 
-The slice is **89 source files and 31 test files (322 tests)**. It was produced by an export tool in the private
-repo that copies the *import closure* of these modules, so nothing they need is missing and nothing they don't
-need is carried.
+## The LLM request path
+
+Two different failures, two different mechanisms. A provider with **no key** is skipped once, at selection time.
+A provider that **errors** (quota, outage) hands over at call time to the next one in a fixed, ordered chain. Every
+hop is logged with the provider it abandoned and why, and the caller learns which provider actually answered.
+
+```mermaid
+flowchart TD
+    Q["explain request"] --> CTX["RAG context builder<br/>registered sections: signal, indicators,<br/>technical levels, news"]
+    POLICY[("ai-sources.yaml<br/>curated sources + guardrails")] --> CTX
+    CTX --> SEL{"selection time:<br/>which providers have a key?"}
+    SEL --> P1["claude"]
+    P1 -- "upstream error" --> P2["openrouter"]
+    P2 -- "upstream error" --> P3["together"]
+    P3 -- "upstream error" --> P4["gemini"]
+    P4 -- "upstream error" --> P5["groq"]
+    P5 -- "upstream error" --> MOCK["mock<br/>(floor: degrade, never raise)"]
+    P1 & P2 & P3 & P4 & P5 & MOCK --> PARSE["conclusion parser<br/>(validates the structured answer)"]
+    PARSE --> R["response + the provider that answered"]
+```
+
+The chain shown is the paid-tier explanation chain. The free tier starts at Groq. News-impact classification starts at
+OpenRouter, routed to the model the offline evaluation chose. Vision chains leave out Groq, which cannot read charts.
+
+## How I build with AI
+
+PulsAI is written with an AI coding agent working inside guardrails I designed, which is the practice this repository is
+meant to show:
+
+```mermaid
+flowchart LR
+    T["task"] --> TEST["failing test first"]
+    TEST --> GEN["agent proposes a change"]
+    GEN --> GATES{"pre-commit gates<br/>one concept one definition,<br/>clones, touched-file ratchet,<br/>types, lint, secrets"}
+    GATES -- "refused, with the reason<br/>and the home to import from" --> GEN
+    GATES -- "pass" --> CI["CI: tests, types, CodeQL,<br/>SonarQube, Scorecard"]
+    CI --> REVIEW["human judgement:<br/>verify claims against<br/>the running system"]
+    REVIEW --> SHIP["ship"]
+```
+
+- **The agent proposes; executable gates decide.** The detectors in `backend/src/lib/quality_gates` run before
+  every commit and in CI. They refuse duplicated concepts, new clone groups, unexplained `Any`, nested ternaries and
+  file-size regressions. A file an agent touches must leave with less debt than it arrived with.
+- **Tests first, then code.** Behaviour changes start with a failing test; the fixes in this repository were
+  reproduced red before they were made green. One example: the TTL lock's release used to delete whatever the key held, so a holder whose lock had
+  expired could delete the next holder's lock. A fakeredis test reproduced it, then the fix landed.
+- **Claims carry numbers.** A performance or reliability claim states a before / after measurement, not an
+  adjective.
+- **Judgement stays human.** A generated suggestion is a proposal, never an authority. Comments and docs are checked against the
+  running system before they are trusted.
+
+## Design decisions and trade-offs
+
+| decision | why | what it costs |
+|---|---|---|
+| **Fail-open on infrastructure faults only.** The Redis cache catches `RedisError` and `OSError`, never `Exception`. | A Redis outage degrades to the loader and users keep working. A `TypeError` in our own code still raises, instead of becoming a permanent silent cache miss. | Each new failure class has to be named on purpose. |
+| **Bounded fallback chains with a mock floor.** | A total provider outage degrades instead of raising, and a fixed list can never loop. | The order is a maintained decision: each chain records why each provider sits where it does. |
+| **Optimistic concurrency (ETag / `If-Match` → 412) for HTTP updates.** | No lost writes, and no server-side locks held across requests. | Clients must handle 412 and re-read. |
+| **Lazy ML imports (PEP 562 facade).** | Worker services that only need model storage don't load the training stack (lightgbm, catboost, xgboost, sklearn). | The lazy names are also imported under `TYPE_CHECKING`, so mypy checks every call site against the real modules. |
+| **Ratchets, not big-bang cleanups.** Debt counts may only fall, and touching a file pays its share. | Quality improves steadily without freezing feature work. | Totals live in the gates and must be locked when they fall. |
+| **Shared contracts with golden vectors.** | Two languages, one format, one fixture that both sides test against. | Changing the format means regenerating the vectors. |
+
+## Numbers (measured on this repository)
+
+| | |
+|---|---|
+| backend | 166 source modules, **745 tests** (pytest), `mypy --strict` clean, ruff clean |
+| frontend | 133 source files, **421 tests** (vitest), `tsc --noEmit` clean under the strict config |
+| CI | lint, format, types and tests for both stacks; SonarQube Cloud (Python + TypeScript); CodeQL; OpenSSF Scorecard; TruffleHog over the full history; Dependabot; every action pinned to a commit SHA |
 
 ## Run it
 
 ```bash
+# backend (Python 3.14, uv)
 cd backend
 uv sync
-uv run pytest          # 322 tests, no Redis or database needed (fakeredis)
-uv run ruff check .
-uv run mypy
+uv run pytest            # 745 tests, no Redis or database needed (fakeredis)
+uv run mypy && uv run ruff check .
+
+# frontend (Node 22, pnpm)
+pnpm install
+pnpm --filter web type-check
+pnpm --filter web test   # 421 tests
 ```
 
-Python 3.14, dependencies pinned in [`backend/pyproject.toml`](backend/pyproject.toml).
-
-## The full system (private repo), measured
+## The full system (private), measured
 
 | | |
 |---|---|
-| backend product code | 2,094 Python modules — `domain` / `application` / `infrastructure` / `api` layers (DDD) |
-| backend tests | 2,266 test modules |
-| frontend | Next.js + TypeScript, 3,247 source files, 1,568 test files |
+| backend | 2,094 Python modules in `domain` / `application` / `infrastructure` / `api` layers, 2,266 test modules |
+| frontend | 3,247 TypeScript source files, 1,568 test files |
 | database | PostgreSQL, 110 Alembic migrations |
 | decisions | 33 architecture decision records |
-| CI | 14 jobs: lint, types, tests with a coverage gate on changed code, migrations, performance baselines, duplicate-code ratchet, secret scan, dependency audit |
+| CI | 14 jobs, including a coverage gate on changed code, migration checks, performance baselines and a duplicate-code ratchet |
 
-## Quality signals on this repository
+## How the full platform runs (private repo)
 
-- **CI** — ruff (lint + format), mypy, pytest with coverage, on every push.
-- **SonarQube Cloud** — quality gate, coverage and maintainability, from the CI run.
-- **CodeQL** — static security analysis.
-- **OpenSSF Scorecard** — supply-chain practices; every GitHub Action is pinned to a commit SHA.
-- **TruffleHog** — secret scan of the full git history.
+This repository is a slice of modules, not the running application, so it ships no stack scripts. In the monorepo, one command runs the whole platform:
 
-See [`SECURITY.md`](SECURITY.md) for how to report a vulnerability.
+| command | what it does |
+|---|---|
+| `pnpm app:all` | PostgreSQL 17 (behind PgBouncer) and Redis in Docker, Alembic migrations, the FastAPI API, the Next.js app and the Celery workers |
+| `pnpm app:light` / `pnpm app:fast` | the same stack without workers, or without migrations |
+| `pnpm app:all:obs` | the stack plus observability: OpenTelemetry traces in **Jaeger**, metrics in **Prometheus**, dashboards in **Grafana** |
+| `pnpm app:stop` | stops the stack |
+| `pnpm app:backup` / `pnpm app:restore` | snapshot and restore the local database |
+| `pnpm verify:all` | the full gate: frontend type-check, lint and tests, then backend mypy, ruff, the quality gates and pytest |
+
+The launcher refuses to restart a stack that is already up. A second `app:all` on a live machine is the usual way to lose
+a running worker's job, so that start fails with the reason instead.
+
+## How this slice was produced
+
+Two export tools in the private repository, each tested:
+
+- **Backend:** the import closure of the chosen modules, from an AST walk. Re-export-only package
+  `__init__` files are emptied in the copy, and their importers point at the module that defines each name. Without that, one lock
+  module pulled in 668 files through a package facade.
+- **Frontend:** the import closure from TypeScript's own resolver (`ts.resolveModuleName` with the project's
+  tsconfig), so type-only imports are included and the copy type-checks.
+- **Tests:** a test is copied only when everything it imports is in the slice.
+- **What stays private:** the research lab (models, strategies, live trading engines) is excluded, and the export
+  refuses any slice that reaches it. Some comments still name modules of the private monorepo; those modules are not
+  part of this repository.
+
+See [`SECURITY.md`](SECURITY.md) to report a vulnerability.
 
 ## License
 

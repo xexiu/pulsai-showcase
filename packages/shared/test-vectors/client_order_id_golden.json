@@ -1,0 +1,22 @@
+{
+  "manual_deterministic": [
+    {
+      "id": "perp-long-market",
+      "connection_id": "c1",
+      "symbol": "BTC/USDT:USDT",
+      "side": "buy",
+      "order_type": "market",
+      "normalized_key": "abc",
+      "expected": "pam-k-8f822a8ac9ffa509198b8d"
+    },
+    {
+      "id": "spot-sell-limit",
+      "connection_id": "conn-9",
+      "symbol": "BTC/USDT",
+      "side": "sell",
+      "order_type": "limit",
+      "normalized_key": "idem-42",
+      "expected": "pam-k-4660bdbd684aa9cfc59425"
+    }
+  ]
+}

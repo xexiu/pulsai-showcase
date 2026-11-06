@@ -1,22 +1,31 @@
 [project]
 name = "pulsai-showcase-backend"
 version = "0.1.0"
-description = "A self-contained slice of the PulsAI FastAPI backend: fail-open cache-aside over Redis, a token-safe TTL lock, ETag optimistic concurrency and exchange-error mapping."
+description = "A runnable slice of the PulsAI backend: a multi-provider LLM layer with RAG context and runtime fallback, AST quality gates for AI-generated code, ML validation and backtest metrics, numba indicators, and resilient Redis/HTTP infrastructure."
 requires-python = ">=3.14"
 license = "MIT"
 dependencies = [
+    "anthropic==0.89.0",
     "ccxt==4.5.88",
     "fastapi==0.135.3",
+    "google-genai==1.70.0",
+    "groq==1.1.2",
+    "httpx==0.28.1",
+    "numba==0.65.0",
     "numpy==2.4.6",
+    "openai==2.30.0",
     "orjson==3.13.0",
     "pandas==3.0.2",
     "polars==1.39.3",
     "prometheus-client==0.25.0",
     "pydantic==2.12.5",
     "pydantic-settings==2.15.0",
+    "pyyaml==6.0.3",
     "redis==6.4.0",
+    "scikit-learn==1.9.0",
     "scipy==1.17.1",
     "sqlalchemy==2.0.49",
+    "together==2.7.0",
 ]
 
 [dependency-groups]
@@ -32,9 +41,28 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = ["--strict-markers", "-ra", "--tb=short"]
+addopts = [
+    "--strict-markers", "-ra", "--tb=short",
+    # These assert that the gates are WIRED into the private monorepo -- they read its verify.sh, ci.yml, pyright
+    # config and scripts/check_*.py, none of which ship here. Every unit test of the gate logic itself runs.
+    "--deselect=tests/scripts/test_explicit_any.py::TestTheRatchetMeasuresTheRealTree",
+    "--deselect=tests/scripts/test_expression_clones.py::test_the_real_tree_is_read_and_holds_the_measured_clone",
+    "--deselect=tests/scripts/test_expression_clones.py::test_the_tree_ratchet_is_current",
+    "--deselect=tests/scripts/test_ratchet_touch.py::test_ratchets_touch_to_lower",
+    "--deselect=tests/scripts/test_standards_rules.py::test_a_basedpyright_that_cannot_run_is_never_read_as_a_clean_file",
+    "--deselect=tests/scripts/test_standards_rules.py::test_a_lab_test_answers_to_the_lab_waiver_not_to_every_test_convention",
+    "--deselect=tests/scripts/test_standards_rules.py::test_a_ruff_that_cannot_run_is_never_read_as_a_clean_file",
+    "--deselect=tests/scripts/test_standards_rules.py::test_a_rule_counts_its_shape_and_not_the_asked_for_spelling",
+    "--deselect=tests/scripts/test_standards_rules.py::test_the_lab_waiver_hides_a_finding_from_lint_but_never_from_its_ratchet",
+    "--deselect=tests/scripts/test_standards_rules.py::test_the_root_pyright_config_keeps_the_unknown_rules_off",
+    "--deselect=tests/scripts/test_standards_rules.py::test_the_tree_lists_the_tests_no_ast_rule_reads",
+    "--deselect=tests/scripts/test_standards_rules.py::test_the_unknown_type_count_resolves_imports_like_the_real_tree",
+    "--deselect=tests/scripts/test_standards_rules.py::test_the_waiver_is_read_from_pyproject_and_conventions_are_not_debt",
+    "--deselect=tests/scripts/test_standards_rules.py::test_verify_and_ci_run_the_tree_ratchet",
+]
 
 # Lint and type rules are the private monorepo's own, unchanged: the slice is judged by the rules it was written under.
 [tool.ruff]
@@ -62,10 +90,20 @@ ignore = [
     "TRY301",
     "TC003",
     "UP040",    # `type X = ...` changes get_args() and the pydantic schema; converted only with its readers
+    "S603",     # subprocess with a literal argv and shell=False; the injection risk lives in S602 / S605, still enforced
+    "PLW0108",  # default=lambda: utc_now() in ORM columns -- SQLAlchemy expects a nullary callable
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["ANN", "ARG", "PLR2004", "PLR0913", "S", "SLF001", "PT011", "E501"]
+"tests/**" = [
+    "S", "ANN", "ARG", "N806", "N803", "E501", "ERA001", "SLF001", "PT011",
+    "PLR2004", "PLR0913", "PLR0915",  # literal assertions and fixture-heavy helpers are correct test design
+    "DTZ", "TRY", "PTH123", "RUF012", "SIM102",
+]
+# X / y / X_train is the standard ML naming; numpy / polars are runtime imports; training entry points take 6-8 params
+"src/infrastructure/ml/**/*.py" = ["N806", "N803", "TC002", "TC003", "PLR0913", "PLR0912"]
+"src/infrastructure/ai/ai_provider_base.py" = ["ARG002"]  # the base signature every provider overrides
+"src/infrastructure/ai/ai_provider_mock.py" = ["ARG002", "S311", "E501"]  # canned replies; random is not crypto here
 "src/domain/enums.py" = ["UP037"]
 "src/shared/exception_types/base.py" = ["N818"]
 "src/shared/constants/__init__.py" = ["E402"]
@@ -91,5 +129,8 @@ warn_unreachable = true
 
 [[tool.mypy.overrides]]
 # third-party packages without type stubs or a py.typed marker
-module = ["ccxt", "ccxt.*", "pandas", "pandas.*", "numpy.*", "polars.*", "scipy.*", "orjson.*", "prometheus_client", "prometheus_client.*"]
+module = [
+    "ccxt", "ccxt.*", "pandas", "pandas.*", "numpy.*", "polars.*", "scipy.*", "orjson.*",
+    "prometheus_client", "prometheus_client.*", "numba", "numba.*", "sklearn", "sklearn.*",
+]
 ignore_missing_imports = true

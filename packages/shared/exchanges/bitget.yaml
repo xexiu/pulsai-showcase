@@ -1,0 +1,99 @@
+# =============================================================================
+# Bitget V2 — per-venue data config
+# =============================================================================
+#
+# Single source of truth for Bitget's REST data:
+#   - Base URLs (mainnet + demo share a host; demo flagged via productType)
+#   - Path constants per market (swap + spot)
+#   - Auth header names + demo-flag header + passphrase requirement
+#   - Envelope shape (success-code path/value, data path)
+#   - Proxy allowlist (hostnames the Edge proxy will forward to)
+#
+# This file is read at module init by:
+#   - BE  (Python):  src/shared/exchanges/load.py via PyYAML
+#   - FE  (TS):      packages/shared/src/exchanges/bitget.ts hand-mirrors it
+#                    (validated against schema; parity asserted by tests).
+#
+# Editing rules:
+#   - Bump `schema_version` only on a breaking field change.
+#   - Update the TS hand-mirror in packages/shared/src/exchanges/bitget.ts
+#     when ANY field here changes; CI parity test will fail otherwise.
+#   - HMAC signing / response mapping / WS parsing stay as code (per-venue
+#     algorithms can't be expressed in declarative yaml).
+#
+# @see docs/04-structural/EPIC_A_EXCHANGE_SOT_AUDIT.md §3
+# =============================================================================
+
+schema_version: 1
+id: bitget
+display_name: Bitget
+default_fee_rate: 0.001
+
+# Bitget V2 demo trading reuses the production host — the demo-ness is
+# signalled per-request via the S-prefixed product type (SUSDT-FUTURES),
+# NOT via a separate hostname. (We tried `api-demo.bitget.com` by analogy
+# with Bybit's `api-testnet.bybit.com` — it doesn't exist and DNS fails.)
+base_urls:
+  mainnet: https://api.bitget.com
+  testnet: https://api.bitget.com
+
+# Bitget V2 USDT-M futures (mix endpoints).
+swap:
+  product_type:
+    mainnet: usdt-futures
+    testnet: SUSDT-FUTURES
+  margin_coin: USDT
+  window_caps:
+    # Bitget enforces a strict 90-day cap on history endpoints (verified by
+    # API code 00001 on intervals > 90 days). We use 89 to stay safely
+    # inside the inequality.
+    history_days: 89
+  paths:
+    place_order: /api/v2/mix/order/place-order
+    cancel_order: /api/v2/mix/order/cancel-order
+    open_orders: /api/v2/mix/order/orders-pending
+    orders_history: /api/v2/mix/order/orders-history
+    position_history: /api/v2/mix/position/history-position
+    positions: /api/v2/mix/position/all-position
+    # Singular endpoint (not /accounts plural). The plural variant returns
+    # [] for demo accounts with no open positions even when funded —
+    # verified against a live demo key returning 8,874 USDT equity.
+    account: /api/v2/mix/account/account
+
+# Bitget V2 spot.
+spot:
+  paths:
+    place_order: /api/v2/spot/trade/place-order
+    cancel_order: /api/v2/spot/trade/cancel-order
+    open_orders: /api/v2/spot/trade/unfilled-orders
+
+# REST authentication.
+auth:
+  header_names:
+    api_key: ACCESS-KEY
+    signature: ACCESS-SIGN
+    timestamp: ACCESS-TIMESTAMP
+    passphrase: ACCESS-PASSPHRASE
+  needs_passphrase: true
+  # Bitget V2 demo-mode flag — appended to every request after HMAC sign
+  # (the header isn't part of the signature material per docs).
+  demo_flag_header:
+    name: paptrading
+    value: '1'
+
+# Bitget V2 JSON envelope: { code, msg, data }.
+envelope:
+  success_code_path: code
+  success_code_value: '00000'
+  data_path: data
+
+# Hostnames the Edge CORS proxy is allowed to forward to.
+proxy:
+  hostnames:
+    - api.bitget.com
+
+# Unauthenticated paths consumed by the admin observability page only.
+# Never reached by user-facing trade flows; admin health hits these direct
+# (no signing, no vault) to measure venue reachability + latency.
+public_paths:
+  ping: /api/v2/public/time

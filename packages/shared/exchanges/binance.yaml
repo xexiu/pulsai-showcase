@@ -1,0 +1,43 @@
+# =============================================================================
+# Binance — per-venue data config (OHLCV-only)
+# =============================================================================
+#
+# Binance has NO live-direct path on PulsAI today. The BE uses CCXT to
+# fetch public OHLCV; that path doesn't read this yaml because CCXT
+# handles paths/auth internally. This file exists to:
+#
+#   - Be the canonical home for ``default_fee_rate`` (was in BE Exchange enum)
+#   - Document the base URLs in a single place
+#   - Prove the per-exchange schema scales to "BE-CCXT-only" venues
+#     (auth/envelope/proxy all optional)
+#
+# If a live-direct path is added later (signed POST orders), fill in:
+#   - swap.paths / spot.paths
+#   - auth (header names + signing scheme metadata)
+#   - envelope shape
+#   - proxy.hostnames
+#
+# @see docs/04-structural/EPIC_A_EXCHANGE_SOT_AUDIT.md
+# =============================================================================
+
+schema_version: 1
+id: binance
+display_name: Binance
+# 0.1% standard taker fee on spot + futures (VIP-0). Lower at higher VIP tiers.
+default_fee_rate: 0.001
+
+# Both mainnet and testnet are reachable via separate hosts on Binance.
+# Testnet URL is the standard futures testnet host; spot testnet has its
+# own host (testnet.binance.vision) — capture both when live-direct lands.
+base_urls:
+  mainnet: https://api.binance.com
+  testnet: https://testnet.binance.vision
+
+# `swap`, `spot`, `auth`, `envelope`, `proxy` all intentionally absent:
+# PulsAI has no live-direct path for Binance today. The CCXT-based BE
+# OHLCV fetcher is unaffected by this yaml.
+
+# Unauthenticated ping used by /admin/exchanges to surface BE-reachability
+# for the OHLCV venue (independent of CCXT — we hit the raw REST host).
+public_paths:
+  ping: /api/v3/ping

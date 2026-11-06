@@ -1,0 +1,595 @@
+# =============================================================================
+# AI Sources Configuration (Sprint 1.7)
+# =============================================================================
+# Curated sources for RAG context - NO random internet scraping
+# Only trusted, verified sources to prevent hallucinations and manipulation
+# =============================================================================
+
+version: '1.0'
+description: 'Curated sources for AI context - controlled RAG architecture'
+
+# =============================================================================
+# Internal Data Sources (PulsAI's own data)
+# =============================================================================
+# DESIGN DECISION (2026-01-29): NOT including api_response history
+# WHY: Primary use case is "explain THIS signal", not conversation history
+# PROS of api_response: Conversation continuity, personalization
+# CONS: Privacy risk, token cost, complexity, scope creep
+# REVISIT: If users request chat memory feature
+# =============================================================================
+internal_sources:
+  enabled: true
+  include:
+    - signals # ML signal history (action, confidence, timestamp)
+    - models # Model metrics (accuracy, sharpe, win_rate)
+    - charts # OHLCV data (last N candles)
+    - indicators # TA indicators (RSI, MACD, BB values)
+    - sentiment # Fear & Greed index, market sentiment
+    # NOT included (by design):
+    # - api_response  # User's API call history (privacy, cost, complexity)
+
+# =============================================================================
+# External Data Sources (Curated, trusted only)
+# =============================================================================
+# DESIGN DECISION (2026-01-29): Start minimal, expand based on user feedback
+# MVP sources: News (Financial Juice), Education (Pattern Site), Macro (FED, BLS)
+# FUTURE candidates:
+#   - CoinGlass (liquidations, OI, funding) - free tier, crypto-specific
+#   - CME FedWatch (rate probabilities) - market expectations
+#   - DeFi Llama (TVL) - DeFi context
+# NOT adding yet:
+#   - Glassnode - requires paid subscription
+#   - TradingView - complex API
+# REASONING: More sources = more tokens = higher cost per AI call
+# =============================================================================
+external_sources:
+  enabled: true
+  refresh_interval_minutes: 15
+  cache_ttl_minutes: 30
+
+  sources:
+    # Financial News - High Trust
+    - name: 'Financial Juice'
+      url: 'https://x.com/financialjuice'
+      type: 'twitter_feed'
+      trust_level: 'high'
+      categories: ['macro', 'fed', 'breaking']
+      description: 'Breaking financial news, Fed announcements'
+
+    # Technical Analysis Education (no live RSS as of 2026-04 — /feed/ returns 404; re-enable when a feed exists)
+    - name: 'The Pattern Site'
+      url: 'https://thepatternsite.com/Blog.html'
+      rss_url: 'https://thepatternsite.com/feed/'
+      type: 'blog_rss'
+      headline_ingestion: false
+      trust_level: 'high'
+      categories: ['patterns', 'education', 'technical']
+      description: 'Chart pattern analysis and education'
+
+    # Official Government Sources
+    - name: 'FED Calendar'
+      url: 'https://www.federalreserve.gov/newsevents/calendar.htm'
+      type: 'calendar'
+      trust_level: 'official'
+      categories: ['fed', 'rates', 'policy', 'fomc']
+      description: 'Federal Reserve meeting schedule and announcements'
+
+    - name: 'BLS Economic Data'
+      url: 'https://www.bls.gov/news.release/'
+      type: 'government_data'
+      trust_level: 'official'
+      categories: ['cpi', 'jobs', 'inflation', 'economic']
+      description: 'Bureau of Labor Statistics - CPI, employment data'
+
+    # RSS headline ingestion (government_rss): verified 200 with worker User-Agent (not the HTML calendar pages above)
+    - name: 'Federal Reserve Board Press Releases'
+      url: 'https://www.federalreserve.gov/feeds/feeds.htm'
+      rss_url: 'https://www.federalreserve.gov/feeds/press_all.xml'
+      type: 'government_rss'
+      headline_ingestion: true
+      headline_fetch_priority: low
+      headline_max_items: 9
+      trust_level: 'official'
+      categories: ['fed', 'rates', 'policy', 'macro']
+      description: 'All recent Board press releases (RSS)'
+
+    - name: 'BLS Latest News Releases'
+      url: 'https://www.bls.gov/feed/'
+      rss_url: 'https://www.bls.gov/feed/bls_latest.rss'
+      type: 'government_rss'
+      headline_ingestion: true
+      headline_fetch_priority: low
+      headline_max_items: 9
+      trust_level: 'official'
+      categories: ['cpi', 'jobs', 'inflation', 'economic']
+      description: 'Latest BLS economic news releases (RSS)'
+
+    # Mainstream financial headlines (news_rss): headline_ingestion requires a real rss_url.
+    # Site homepages (e.g. wsj.com, bloomberg.com/europe) are HTML, not RSS — do not use as rss_url.
+    # Same REJECT for interactive calendar/tool HTML pages as rss_url (they are UIs, not feeds):
+    # Investing economic-calendar, BabyPips economic-calendar, Investing earnings-calendar,
+    # ForexFactory homepage, market-hours, Finviz screener.
+    # BUT: Investing publishes adjacent NEWS RSS via webmaster-tools/rss (economic indicators,
+    # economy, earnings, crypto) — those ARE wired below. ForexFactory calendar has a separate
+    # XML dump (nfs.faireconomy.media) ingested as DeepSeek synthetics, not RSS.
+    # Macro schedule/surprise synthetics also come from FRED/TE MacroSnapshot.
+    # We do NOT mirror the full FeedSpot directory: extra entries below were added only when rss_url
+    # returned HTTP 200 with User-Agent PulsAI-HeadlineBot/1.0 (403/404/405/202/etc. omitted).
+    # HTTP 200 is NOT proof a feed is alive — also check the newest item's date. A dead feed keeps
+    # serving its last file (WSJ, 2026-09-15); ingestion drops items older than
+    # headline_rss_max_entry_age_hours, so a dead feed now yields 0 items instead of stale news.
+    # Reference catalogue: https://rss.feedspot.com/financial_news_rss_feeds/
+    # Investing RSS index: https://www.investing.com/webmaster-tools/rss
+    - name: 'Financial Times (International)'
+      url: 'https://www.ft.com'
+      rss_url: 'https://www.ft.com/rss/home/international'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 2
+      trust_level: 'high'
+      categories: ['macro', 'markets', 'news']
+      description: 'FT international homepage RSS'
+
+    - name: 'Wall Street Journal (Markets)'
+      url: 'https://www.wsj.com'
+      rss_url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml'
+      type: 'news_rss'
+      # Disabled 2026-09-15: DEAD feed. Answers HTTP 200 with 20 items, but the newest is dated
+      # 2025-01-27 (596 days) — Dow Jones stopped updating feeds.a.dj.com. Its 4 items (incl. the
+      # DeepSeek AI rout) were scored as current news on every refresh. MarketWatch below is the
+      # live Dow Jones feed; realtimeheadlines/marketpulse are dead too, Barron's answers 403.
+      headline_ingestion: false
+      headline_fetch_priority: high
+      headline_max_items: 4
+      trust_level: 'high'
+      categories: ['markets', 'news']
+      description: 'WSJ markets RSS (Dow Jones feeds)'
+
+    - name: 'Bloomberg (Markets News RSS)'
+      url: 'https://www.bloomberg.com'
+      rss_url: 'https://feeds.bloomberg.com/markets/news.rss'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_fetch_priority: high
+      headline_max_items: 4
+      trust_level: 'high'
+      categories: ['markets', 'macro', 'news']
+      description: 'Bloomberg markets headline RSS (not the Europe homepage)'
+
+    - name: 'MarketWatch (Top Stories)'
+      url: 'https://www.marketwatch.com'
+      rss_url: 'https://feeds.marketwatch.com/marketwatch/topstories/'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_fetch_priority: high
+      headline_max_items: 4
+      trust_level: 'high'
+      categories: ['markets', 'news']
+      description: 'MarketWatch top stories RSS'
+
+    - name: 'The Economist (Finance & Economics)'
+      url: 'https://www.economist.com'
+      rss_url: 'https://www.economist.com/finance-and-economics/rss.xml'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 2
+      trust_level: 'high'
+      categories: ['macro', 'policy', 'news']
+      description: 'Economist finance and economics section RSS'
+
+    - name: 'Fortune'
+      url: 'https://fortune.com'
+      rss_url: 'https://fortune.com/feed/'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 2
+      trust_level: 'high'
+      categories: ['business', 'news']
+      description: 'Fortune latest RSS'
+
+    - name: 'Yahoo Finance (News RSS index)'
+      url: 'https://finance.yahoo.com'
+      rss_url: 'https://finance.yahoo.com/news/rssindex'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 2
+      trust_level: 'high'
+      categories: ['markets', 'news']
+      description: 'Yahoo Finance RSS index (headlines)'
+
+    - name: 'CNBC (Top News)'
+      url: 'https://www.cnbc.com'
+      rss_url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_fetch_priority: high
+      headline_max_items: 4
+      trust_level: 'high'
+      categories: ['markets', 'news']
+      description: 'CNBC top news RSS'
+
+    - name: 'Investing.com (Stock Market News)'
+      url: 'https://www.investing.com'
+      rss_url: 'https://www.investing.com/rss/news_25.rss'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 2
+      trust_level: 'medium'
+      categories: ['markets', 'news']
+      description: 'Investing.com stock market news RSS'
+
+    # Investing webmaster RSS catalog (https://www.investing.com/webmaster-tools/rss) —
+    # these are NEWS feeds adjacent to the HTML calendar/tool pages (which themselves are
+    # not RSS). Verified HTTP 200 + application/rss+xml 2026-08-25.
+    - name: 'Investing.com (Economic Indicators News)'
+      url: 'https://www.investing.com/webmaster-tools/rss'
+      rss_url: 'https://www.investing.com/rss/news_95.rss'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_fetch_priority: high
+      headline_max_items: 4
+      trust_level: 'high'
+      categories: ['macro', 'economic', 'news']
+      description: 'Investing.com economic-indicators news RSS (calendar-adjacent; not the HTML calendar grid)'
+
+    - name: 'Investing.com (Economy News)'
+      url: 'https://www.investing.com/webmaster-tools/rss'
+      rss_url: 'https://www.investing.com/rss/news_14.rss'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_fetch_priority: high
+      headline_max_items: 3
+      trust_level: 'high'
+      categories: ['macro', 'economy', 'news']
+      description: 'Investing.com economy news RSS'
+
+    - name: 'Investing.com (Earnings Reports)'
+      url: 'https://www.investing.com/webmaster-tools/rss'
+      rss_url: 'https://www.investing.com/rss/news_1062.rss'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 2
+      trust_level: 'medium'
+      categories: ['earnings', 'markets', 'news']
+      description: 'Investing.com earnings reports and whispers RSS'
+
+    - name: 'Investing.com (Cryptocurrency News)'
+      url: 'https://www.investing.com/webmaster-tools/rss'
+      rss_url: 'https://www.investing.com/rss/news_301.rss'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 4
+      trust_level: 'medium'
+      categories: ['crypto', 'markets', 'news']
+      description: 'Investing.com cryptocurrency news RSS'
+
+    - name: 'FinanceAsia (Latest)'
+      url: 'https://www.financeasia.com'
+      rss_url: 'https://www.financeasia.com/rss/latest'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 2
+      trust_level: 'high'
+      categories: ['asia', 'finance', 'news']
+      description: 'FinanceAsia latest RSS'
+
+    - name: 'Financial Juice (RSS)'
+      url: 'https://www.financialjuice.com/home'
+      rss_url: 'https://www.financialjuice.com/feed/'
+      type: 'news_rss'
+      # Disabled 2026-05-24: upstream feed returns 404 (verified via direct
+      # HEAD probe). The Twitter/X feed entry above (line 52) is the live
+      # data source. Kept here as a record so a future revive of the .com
+      # feed only needs flipping ``headline_ingestion`` back to true. Without
+      # this disable the headline-sentiment task logged a noisy WARNING on
+      # every 5-min tick.
+      headline_ingestion: false
+      headline_max_items: 2
+      trust_level: 'high'
+      categories: ['macro', 'breaking', 'news']
+      description: 'Financial Juice site RSS (separate from the X/twitter_feed entry above)'
+
+    - name: 'TheStreet'
+      url: 'https://www.thestreet.com'
+      rss_url: 'https://thestreet.com/.rss/full'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 2
+      trust_level: 'medium'
+      categories: ['markets', 'news']
+      description: 'TheStreet full RSS'
+
+    # FeedSpot-style additions: HTTP 200 on rss_url only (see block comment above).
+    - name: 'Seeking Alpha (Market News)'
+      url: 'https://seekingalpha.com'
+      rss_url: 'https://seekingalpha.com/feed.xml'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'medium'
+      categories: ['markets', 'news']
+      description: 'Seeking Alpha market news RSS'
+
+    - name: 'Global Finance Magazine'
+      url: 'https://www.gfmag.com'
+      rss_url: 'https://www.gfmag.com/feed'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'high'
+      categories: ['finance', 'news']
+      description: 'Global Finance magazine RSS'
+
+    - name: 'World Finance'
+      url: 'https://www.worldfinance.com'
+      rss_url: 'https://www.worldfinance.com/feed/'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'high'
+      categories: ['finance', 'news']
+      description: 'World Finance magazine RSS'
+
+    - name: 'MarketBeat'
+      url: 'https://www.marketbeat.com'
+      rss_url: 'https://www.marketbeat.com/feed'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'medium'
+      categories: ['markets', 'news']
+      description: 'MarketBeat headlines RSS'
+
+    - name: 'MoneyWeek'
+      url: 'https://www.moneyweek.com'
+      rss_url: 'https://www.moneyweek.com/feed/all'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'high'
+      categories: ['investing', 'news']
+      description: 'MoneyWeek all articles RSS'
+
+    - name: 'Financial Samurai'
+      url: 'https://www.financialsamurai.com'
+      rss_url: 'https://www.financialsamurai.com/feed'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'medium'
+      categories: ['personal_finance', 'investing']
+      description: 'Financial Samurai blog RSS'
+
+    - name: 'Finance Monthly'
+      url: 'https://www.finance-monthly.com'
+      rss_url: 'https://www.finance-monthly.com/feed'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'medium'
+      categories: ['finance', 'news']
+      description: 'Finance Monthly RSS'
+
+    - name: 'International Business Times'
+      url: 'https://www.ibtimes.com'
+      rss_url: 'https://www.ibtimes.com/rss'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'medium'
+      categories: ['business', 'news']
+      description: 'IBTimes RSS'
+
+    - name: 'Forbes (Business)'
+      url: 'https://www.forbes.com'
+      rss_url: 'https://www.forbes.com/business/feed/'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'high'
+      categories: ['business', 'news']
+      description: 'Forbes business channel RSS (section feed)'
+
+    - name: 'Economy Watch'
+      url: 'https://www.economywatch.com'
+      rss_url: 'https://www.economywatch.com/feed'
+      type: 'news_rss'
+      # Disabled 2026-09-15: DEAD feed — HTTP 200, newest item 223 days old.
+      headline_ingestion: false
+      headline_max_items: 1
+      trust_level: 'medium'
+      categories: ['economics', 'news']
+      description: 'EconomyWatch RSS'
+
+    - name: 'CFI.co'
+      url: 'https://cfi.co'
+      rss_url: 'https://cfi.co/feed'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'medium'
+      categories: ['finance', 'news']
+      description: 'Capital Finance International RSS'
+
+    - name: 'The European Financial Review'
+      url: 'https://www.europeanfinancialreview.com'
+      rss_url: 'https://www.europeanfinancialreview.com/feed'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'medium'
+      categories: ['europe', 'finance', 'news']
+      description: 'European Financial Review RSS'
+
+    - name: 'Markets Insider'
+      url: 'https://markets.businessinsider.com'
+      rss_url: 'https://markets.businessinsider.com/rss'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'high'
+      categories: ['markets', 'news']
+      description: 'Markets Insider RSS'
+
+    - name: "Investor's Business Daily"
+      url: 'https://www.investors.com'
+      rss_url: 'https://www.investors.com/feed/'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'high'
+      categories: ['markets', 'news']
+      description: 'IBD RSS'
+
+    - name: 'Policygenius (News)'
+      url: 'https://www.policygenius.com'
+      rss_url: 'https://www.policygenius.com/news/rss'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 1
+      trust_level: 'medium'
+      categories: ['insurance', 'personal_finance', 'news']
+      description: 'Policygenius news RSS'
+
+    # -------------------------------------------------------------------------
+    # Crypto-native newsrooms
+    #
+    # Until 2026-08-19 this section was a TODO and every one of the 28 configured
+    # feeds was general finance/macro — Bloomberg, CNBC, WSJ, BLS, the Fed. A
+    # crypto product was reading no crypto press at all.
+    #
+    # It surfaced when the owner asked whether we caught the 2026-08-19 White
+    # House crypto summit. Measured answer: the summit storyline was never
+    # ingested. One crypto-policy headline slipped in via Bloomberg's general
+    # markets feed, and FinBERT scored it 0.92 positive — correct. So the model
+    # was never the problem; a smarter model still cannot read a feed nobody
+    # subscribes to.
+    #
+    # headline_max_items is 5 here against 1-2 for the general feeds, on purpose:
+    # a 5-minute poll of "latest N" drops a breaking story when N is small and the
+    # newsroom is busy, which is exactly how the summit was missed. These are the
+    # product's own domain, so they get the deeper window.
+    #
+    # All four verified live before being added (HTTP 200 + item count, not
+    # assumed): CoinDesk 25, CoinTelegraph 30, Decrypt 35, The Block 20. Note the
+    # CoinDesk path has NO trailing slash — with one it answers 308 and yields
+    # zero items.
+    # -------------------------------------------------------------------------
+    - name: 'CoinDesk'
+      url: 'https://www.coindesk.com'
+      rss_url: 'https://www.coindesk.com/arc/outboundfeeds/rss'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 5
+      trust_level: 'high'
+      categories: ['crypto', 'markets', 'news']
+      description: 'CoinDesk crypto newsroom RSS'
+
+    - name: 'CoinTelegraph'
+      url: 'https://cointelegraph.com'
+      rss_url: 'https://cointelegraph.com/rss'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 5
+      trust_level: 'medium'
+      categories: ['crypto', 'markets', 'news']
+      description: 'CoinTelegraph crypto newsroom RSS'
+
+    - name: 'The Block'
+      url: 'https://www.theblock.co'
+      rss_url: 'https://www.theblock.co/rss.xml'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 5
+      trust_level: 'high'
+      categories: ['crypto', 'markets', 'news', 'policy']
+      description: 'The Block crypto research + policy RSS'
+
+    - name: 'Decrypt'
+      url: 'https://decrypt.co'
+      rss_url: 'https://decrypt.co/feed'
+      type: 'news_rss'
+      headline_ingestion: true
+      headline_max_items: 5
+      trust_level: 'medium'
+      categories: ['crypto', 'markets', 'news']
+      description: 'Decrypt crypto newsroom RSS'
+
+    # Still open, deliberately NOT enabled here: CoinGlass is a derivatives
+    # METRICS API (liquidations, OI, funding), not a headline feed. It belongs in
+    # the feature pipeline, not in headline sentiment, and wiring it as a news
+    # source would put numbers through a text model.
+
+# =============================================================================
+# Prohibited Sources (NEVER use these)
+# =============================================================================
+prohibited_sources:
+  - domain: 'reddit.com'
+    reason: 'Too noisy, manipulation risk, pump & dump schemes'
+  - domain: '4chan.org'
+    reason: 'Unreliable, trolling, misinformation'
+  - domain: 'telegram groups'
+    reason: 'Pump & dump risk, unverified claims'
+  - domain: 'random twitter'
+    reason: 'Only whitelisted accounts allowed'
+  - domain: 'tiktok.com'
+    reason: 'Entertainment, not financial analysis'
+  - domain: 'youtube.com'
+    reason: 'Unverified content, clickbait'
+
+# =============================================================================
+# AI Guardrails (Safety & Quality)
+# =============================================================================
+ai_guardrails:
+  # Token limits
+  max_context_tokens: 8000
+  max_response_tokens: 2000
+
+  # Model behavior
+  temperature: 0.3 # Lower = more factual, less creative
+  top_p: 0.9 # Nucleus sampling
+
+  # Safety rules
+  refuse_if_no_data: true # Don't hallucinate if no data available
+  cite_sources: true # Always show source attribution
+  disclaimer_required: true # Add "not financial advice" disclaimer
+
+  # Content filters
+  filter_profanity: true
+  filter_financial_advice: true # Avoid "you should buy/sell"
+
+# =============================================================================
+# Context Templates (for RAG)
+# =============================================================================
+context_templates:
+  signal_explanation: |
+    You are a trading assistant for PulsAI, an AI-powered cryptocurrency trading platform.
+    The user message contains structured sections. Address each non-empty section in order:
+    (1) ML headline / Meta-Agent score, (2) weighted consensus and per-component votes,
+    (3) classic/rule-based TA that fired, (4) sentiment and other numeric inputs,
+    (5) ML feature influence, (6) canonical TA (RSI/MACD/BB), (7) illustrative Kelly-style sizing hint.
+
+    RULES:
+    - Be factual; quote or paraphrase numbers from the context only.
+    - Do not invent components; if a section is missing, skip it without apologizing at length.
+    - Do not give direct financial advice or tell the user to trade.
+    - Close with a neutral synthesis tying the sections together (still not advice).
+    - Mention any relevant external news if provided in the context.
+
+  chart_analysis: |
+    You are analyzing a cryptocurrency chart for technical patterns.
+
+    RULES:
+    - Identify visible chart patterns (double bottom, head & shoulders, etc.)
+    - Note support/resistance levels if visible
+    - Comment on trend direction
+    - Don't recommend specific trades
+
+  market_summary: |
+    Provide a brief market summary based on the provided data.
+
+    RULES:
+    - Focus on facts, not predictions
+    - Mention key price levels
+    - Reference any significant news events
+    - Keep it objective and neutral

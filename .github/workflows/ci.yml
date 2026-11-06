@@ -9,15 +9,13 @@ permissions: read-all
 
 jobs:
   backend:
-    name: backend (lint, types, tests, coverage, SonarQube)
+    name: backend (lint, types, tests, coverage)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0 # SonarQube needs full history for new-code detection
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
@@ -32,18 +30,69 @@ jobs:
       - name: Format (ruff)
         run: uv run ruff format --check .
 
-      - name: Types (mypy)
+      - name: Types (mypy --strict)
         run: uv run mypy
 
       - name: Tests + coverage
         run: uv run pytest --cov=src --cov-report=xml:coverage.xml --cov-report=term
 
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          retention-days: 3
+
+  frontend:
+    name: frontend (types, tests, coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@b307475762933b98ed359c036b0e51f26b63b74b # v5.0.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Types (tsc --noEmit, strict)
+        run: pnpm --filter web type-check
+
+      - name: Tests + coverage (vitest)
+        run: pnpm --filter web test:coverage
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: frontend-coverage
+          path: web/coverage/lcov.info
+          retention-days: 3
+
+  sonarqube:
+    name: SonarQube Cloud (Python + TypeScript)
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # SonarQube needs full history for new-code detection
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: backend-coverage
+          path: backend
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: frontend-coverage
+          path: web/coverage
+
       - name: SonarQube Cloud
         uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          projectBaseDir: backend # a `uses:` step ignores the job's working-directory
 
   secrets:
     name: secret scan (TruffleHog)

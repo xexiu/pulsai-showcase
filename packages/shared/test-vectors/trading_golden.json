@@ -1,0 +1,19 @@
+{
+  "notional_to_base": [
+    {
+      "id": "fe-100-at-78k",
+      "notional_usd": "100",
+      "reference_price_usd": "78000",
+      "expected_base": "0.00128205"
+    }
+  ],
+  "compound_schedule": [
+    {
+      "id": "ladder-3-trades-0pt5-step",
+      "max_compound_trades": 3,
+      "min_compound_step_pct": "0.5",
+      "leverage": 3,
+      "expected_follow_on_rows": 2
+    }
+  ]
+}

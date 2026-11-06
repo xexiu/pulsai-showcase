@@ -1,0 +1,9 @@
+packages:
+  - web
+  - packages/shared
+# Dependency build scripts stay off: none is needed to type-check or test (Next's file watcher, its SWC binary,
+# an old polyfill), and pnpm runs no third-party install script unless it is listed here as true.
+allowBuilds:
+  '@parcel/watcher': false
+  '@swc/core': false
+  es5-ext: false
