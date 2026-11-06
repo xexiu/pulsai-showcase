@@ -1,7 +1,7 @@
 [project]
 name = "pulsai-showcase-backend"
 version = "0.1.0"
-description = "A self-contained slice of the PulsAI FastAPI backend: cache-aside over Redis, a TTL lock, HTTP concurrency limiting and exchange-error mapping."
+description = "A self-contained slice of the PulsAI FastAPI backend: fail-open cache-aside over Redis, a token-safe TTL lock, ETag optimistic concurrency and exchange-error mapping."
 requires-python = ">=3.14"
 license = "MIT"
 dependencies = [
