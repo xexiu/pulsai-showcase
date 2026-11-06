@@ -43,7 +43,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          projectBaseDir: .
+          projectBaseDir: backend # a `uses:` step ignores the job's working-directory
 
   secrets:
     name: secret scan (TruffleHog)
