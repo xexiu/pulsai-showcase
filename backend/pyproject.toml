@@ -1,0 +1,94 @@
+[project]
+name = "pulsai-showcase-backend"
+version = "0.1.0"
+description = "A self-contained slice of the PulsAI FastAPI backend: cache-aside over Redis, a TTL lock, HTTP concurrency limiting and exchange-error mapping."
+requires-python = ">=3.14"
+dependencies = [
+    "ccxt==4.5.88",
+    "fastapi==0.135.3",
+    "numpy==2.4.6",
+    "orjson==3.13.0",
+    "pandas==3.0.2",
+    "polars==1.39.3",
+    "prometheus-client==0.25.0",
+    "pydantic==2.12.5",
+    "pydantic-settings==2.15.0",
+    "redis==6.4.0",
+    "scipy==1.17.1",
+    "sqlalchemy==2.0.49",
+]
+
+[dependency-groups]
+dev = [
+    "fakeredis==2.35.1",
+    "mypy==1.19.1",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.3.0",
+    "pytest-cov==7.0.0",
+    "ruff==0.15.6",
+    "types-redis==4.6.0.20241004",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["--strict-markers", "-ra", "--tb=short"]
+
+# Lint and type rules are the private monorepo's own, unchanged: the slice is judged by the rules it was written under.
+[tool.ruff]
+line-length = 150
+target-version = "py314"
+
+[tool.ruff.lint]
+allowed-confusables = ["σ", "−", "×", "µ", "α", "β", "ρ", "τ", "≈", "≤", "≥", "→"]
+select = [
+    "E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF",
+    "ANN", "TCH", "S", "N", "PT", "RET", "ARG", "PTH", "ERA",
+    "C90", "PL", "PERF", "ASYNC", "FAST", "DTZ", "A", "PIE", "FURB", "TRY",
+]
+ignore = [
+    "ANN401",   # Any is owned by a ratchet in the monorepo, not by per-line noqa
+    "S101",     # assert in runtime validation and tests
+    "S105",     # hardcoded-password heuristics fire on test fixtures and setting NAMES
+    "S106",
+    "TRY003",   # descriptive exception messages
+    "TRY300",
+    "TRY401",
+    "PLW2901",
+    "PLC0415",  # deliberate lazy imports
+    "PLW0603",  # module-level singletons (cache, settings)
+    "TRY301",
+    "TC003",
+    "UP040",    # `type X = ...` changes get_args() and the pydantic schema; converted only with its readers
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "ARG", "PLR2004", "PLR0913", "S", "SLF001", "PT011", "E501"]
+"src/domain/enums.py" = ["UP037"]
+"src/shared/exception_types/base.py" = ["N818"]
+"src/shared/constants/__init__.py" = ["E402"]
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+suppress-none-returning = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.pylint]
+max-args = 8
+max-branches = 12
+max-returns = 8
+max-statements = 60
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+packages = ["src"]
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+# third-party packages without type stubs or a py.typed marker
+module = ["ccxt", "ccxt.*", "pandas", "pandas.*", "numpy.*", "polars.*", "scipy.*", "orjson.*", "prometheus_client", "prometheus_client.*"]
+ignore_missing_imports = true

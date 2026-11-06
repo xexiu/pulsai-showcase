@@ -1,0 +1,144 @@
+"""
+Legacy paper-trading constants shim.
+
+Epic B (RefactorHuge) deleted the BE order-state machinery; the surviving
+shared constants moved to :mod:`src.shared.constants.trading`. This module
+remains as a backward-compatible re-export so the ~40 importers in src/ +
+tests/ continue to resolve until B8 mechanically replaces every import.
+
+Only the constants still consumed by live code paths are re-exported here.
+The deleted ``PAPER_ORDER_STATUS_*`` / ``PAPER_EVENT_*`` / ``VENUE_MIRROR_*``
+/ ``FILL_RESOLUTION_*`` / ``COMPOUND_*`` literals are intentionally gone —
+any import that still references them will surface as a hard failure (good:
+it points to a stale call site that needs to be cleaned in B8).
+"""
+
+from __future__ import annotations
+
+from typing import Final
+
+# Re-export the canonical SoT from src.shared.constants.trading.
+from src.shared.constants.trading import (
+    BRACKET_STATUS_CANCELLED,
+    BRACKET_STATUS_PENDING,
+    BRACKET_STATUS_TRIGGERED,
+    CCXT_FALLBACK_CLIENT_ORDER_ID_ENTROPY_HEX_CHARS_FIRST,
+    CCXT_FALLBACK_CLIENT_ORDER_ID_ENTROPY_HEX_CHARS_SECOND,
+    CCXT_FALLBACK_CLIENT_ORDER_ID_PREFIX,
+    CCXT_OUTBOUND_CLIENT_ORDER_ID_MAX_LEN,
+    COMPOUND_V2_SCHEDULE_SWAP_ONLY_DETAIL,
+    CONNECTION_DISCONNECTED_DETAIL,
+    CONNECTION_NOT_ACTIVE_DETAIL,
+    CONNECTION_NOT_FOUND_DETAIL,
+    DEFAULT_MARGIN_ASSET,
+    DEMO_SELL_BRACKET_DETAIL,
+    FUTURES_NOT_ENABLED_DETAIL,
+    IDEMPOTENCY_KEY_TOO_LONG_DETAIL,
+    IDEMPOTENCY_REFERENCES_MISSING_ORDER_DETAIL,
+    INSUFFICIENT_BTC_DETAIL,
+    INSUFFICIENT_USD_DETAIL,
+    LIVE_EXECUTION_NOT_IMPLEMENTED_DETAIL,
+    LIVE_NOT_ENABLED_DETAIL,
+    LIVE_REQUIRES_MAINNET_CONNECTION_DETAIL,
+    MARKET_VENUE_LIMITS_REFERENCE_REQUIRED_DETAIL,
+    NEAR_ZERO_EPSILON,
+    ORDER_MISSING_AFTER_CANCEL_DETAIL,
+    ORDER_NOT_CANCELLABLE_DETAIL,
+    ORDER_NOT_FOUND_DETAIL,
+    ORDER_SIDE_BUY,
+    ORDER_SIDE_SELL,
+    ORDER_TYPE_LIMIT,
+    ORDER_TYPE_MARKET,
+    PLACED_BY_AUTO,
+    PLACED_BY_MANUAL,
+    SIDE_INVALID_DETAIL,
+    SLTP_MODE_ABSOLUTE,
+    SLTP_MODE_PERCENTAGE,
+    SLTP_STRATEGY_EXCHANGE_NATIVE,
+    SLTP_STRATEGY_EXCHANGE_SPOT_PLAN,
+    TRADING_MODE_DEMO,
+    TRADING_MODE_LIVE,
+    TRADING_MODE_MISMATCH_DETAIL,
+    TRADING_MODE_PAPER,
+    TRADING_MODES_JSON_KEY_FUTURES_SUPPORTED,
+    UNKNOWN_TRADING_MODE_PREFIX,
+    BracketStatus,
+    OrderSide,
+    OrderType,
+    PlacedBy,
+    SLTPMode,
+    SLTPStrategy,
+    TradingMode,
+)
+from src.shared.constants.trading import (
+    TRADING_IDEMPOTENCY_KEY_MAX_LEN as PAPER_IDEMPOTENCY_KEY_MAX_LEN,
+)
+
+# ── Load-bearing surface that still wears a paper-* name ──
+# These names are referenced by auto-mode code paths (no paper persistence,
+# but the audit envelope + clientOrderId wire cap predate Epic B).
+
+PAPER_ORDER_INTENT_MANUAL: Final[str] = "manual"
+PAPER_ORDER_INTENT_POLICY_ASSISTED: Final[str] = "policy_assisted"
+
+# Column ``paper_orders.venue_client_order_id`` is deleted, but the VARCHAR
+# budget for outbound CCXT clientOrderId echoes survives as a domain rule.
+PAPER_ORDER_VENUE_CLIENT_ORDER_ID_MAX_LEN: Final[int] = 128
+
+
+__all__ = [
+    "BRACKET_STATUS_CANCELLED",
+    "BRACKET_STATUS_PENDING",
+    "BRACKET_STATUS_TRIGGERED",
+    "CCXT_FALLBACK_CLIENT_ORDER_ID_ENTROPY_HEX_CHARS_FIRST",
+    "CCXT_FALLBACK_CLIENT_ORDER_ID_ENTROPY_HEX_CHARS_SECOND",
+    "CCXT_FALLBACK_CLIENT_ORDER_ID_PREFIX",
+    "CCXT_OUTBOUND_CLIENT_ORDER_ID_MAX_LEN",
+    "COMPOUND_V2_SCHEDULE_SWAP_ONLY_DETAIL",
+    "CONNECTION_DISCONNECTED_DETAIL",
+    "CONNECTION_NOT_ACTIVE_DETAIL",
+    "CONNECTION_NOT_FOUND_DETAIL",
+    "DEFAULT_MARGIN_ASSET",
+    "DEMO_SELL_BRACKET_DETAIL",
+    "FUTURES_NOT_ENABLED_DETAIL",
+    "IDEMPOTENCY_KEY_TOO_LONG_DETAIL",
+    "IDEMPOTENCY_REFERENCES_MISSING_ORDER_DETAIL",
+    "INSUFFICIENT_BTC_DETAIL",
+    "INSUFFICIENT_USD_DETAIL",
+    "LIVE_EXECUTION_NOT_IMPLEMENTED_DETAIL",
+    "LIVE_NOT_ENABLED_DETAIL",
+    "LIVE_REQUIRES_MAINNET_CONNECTION_DETAIL",
+    "MARKET_VENUE_LIMITS_REFERENCE_REQUIRED_DETAIL",
+    "NEAR_ZERO_EPSILON",
+    "ORDER_MISSING_AFTER_CANCEL_DETAIL",
+    "ORDER_NOT_CANCELLABLE_DETAIL",
+    "ORDER_NOT_FOUND_DETAIL",
+    "ORDER_SIDE_BUY",
+    "ORDER_SIDE_SELL",
+    "ORDER_TYPE_LIMIT",
+    "ORDER_TYPE_MARKET",
+    "PAPER_IDEMPOTENCY_KEY_MAX_LEN",
+    "PAPER_ORDER_INTENT_MANUAL",
+    "PAPER_ORDER_INTENT_POLICY_ASSISTED",
+    "PAPER_ORDER_VENUE_CLIENT_ORDER_ID_MAX_LEN",
+    "PLACED_BY_AUTO",
+    "PLACED_BY_MANUAL",
+    "SIDE_INVALID_DETAIL",
+    "SLTP_MODE_ABSOLUTE",
+    "SLTP_MODE_PERCENTAGE",
+    "SLTP_STRATEGY_EXCHANGE_NATIVE",
+    "SLTP_STRATEGY_EXCHANGE_SPOT_PLAN",
+    "TRADING_MODES_JSON_KEY_FUTURES_SUPPORTED",
+    "TRADING_MODE_DEMO",
+    "TRADING_MODE_LIVE",
+    "TRADING_MODE_MISMATCH_DETAIL",
+    "TRADING_MODE_PAPER",
+    "UNKNOWN_TRADING_MODE_PREFIX",
+    "BracketStatus",
+    "OrderSide",
+    "OrderType",
+    "PlacedBy",
+    "SLTPMode",
+    "SLTPStrategy",
+    "TradingMode",
+]
