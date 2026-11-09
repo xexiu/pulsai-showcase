@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.14"
 resolution-markers = [
     "sys_platform == 'win32'",
@@ -222,7 +222,7 @@ wheels = [
 
 [[package]]
 name = "ccxt"
-version = "4.5.88"
+version = "4.5.92"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohappyeyeballs" },
@@ -248,9 +248,9 @@ dependencies = [
     { name = "yarl" },
     { name = "zlib-ng" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ea/0d/33185cbe18cd75afbc21077b62805e31f50998425772869e8a61c5589fd2/ccxt-4.5.88.tar.gz", hash = "sha256:cb615b5f420fd57b2624c4e85a02a1fa32c914fec4fc5ebe7565d1ef06333016", size = 6304659, upload-time = "2026-10-14T10:56:50.946Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/59/e4/41e4ac9a28f80619a6939dacde1d0a87b8af5a7b003ec92061a3ccf0f7d0/ccxt-4.5.92.tar.gz", hash = "sha256:5faa74fe17168ad8c21f34cc6286c7d771b68d0bca67ff595dcced62b98b46d5", size = 6450365, upload-time = "2026-11-04T15:41:07.385Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/7a/710fe4ca770ca6d1054786eb430d36344aaea93d1a26b27f7959072d0bb7/ccxt-4.5.88-py3-none-any.whl", hash = "sha256:3e37d626cf3245c547b76751a26a9119df9da28f1f80fbdb751586bfebf5f791", size = 6684043, upload-time = "2026-10-14T10:56:47.731Z" },
+    { url = "https://files.pythonhosted.org/packages/af/a7/a3716cb6e374dd06d2720a0ef2062c5c9190668416e9bacb2d30b9253823/ccxt-4.5.92-py3-none-any.whl", hash = "sha256:004c4a9176700df6c5d4f8f7b2fd4691743040b70a2818c7afe1ad93021e62d4", size = 6830983, upload-time = "2026-11-04T15:41:04.01Z" },
 ]
 
 [[package]]
@@ -1486,7 +1486,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = "==0.89.0" },
-    { name = "ccxt", specifier = "==4.5.88" },
+    { name = "ccxt", specifier = "==4.5.92" },
     { name = "celery", specifier = "==5.6.3" },
     { name = "fastapi", specifier = "==0.135.3" },
     { name = "google-genai", specifier = "==1.70.0" },
