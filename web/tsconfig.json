@@ -47,6 +47,6 @@
       "@pulsai/shared/*": ["../packages/shared/src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx", "property-tests/**/*.ts"],
   "exclude": ["node_modules", "coverage"]
 }

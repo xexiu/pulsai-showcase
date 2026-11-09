@@ -7,3 +7,7 @@ allowBuilds:
   '@parcel/watcher': false
   '@swc/core': false
   es5-ext: false
+
+overrides:
+  # GHSA-g3hv-75wg-m249: minimatch 7.0.0 up to 11.0.1 (pulled in by typescript-eslint)
+  minimatch@>=7.0.0 <11.0.1: ^11.0.1
