@@ -220,8 +220,8 @@ Decisions are written down before or as they are made:
 
 | | |
 |---|---|
-| backend | 314 source modules, **2,974 tests** (pytest), 79% line coverage, `mypy --strict` clean, ruff clean |
-| frontend | 206 source files, **1,256 tests** (vitest), 85.6% line coverage, `tsc --noEmit` clean under the strict config |
+| backend | 314 source modules, **3,090 tests** (pytest), 83% line coverage, `mypy --strict` clean, ruff clean |
+| frontend | 206 source files, **1,262 tests** (vitest), 85.6% line coverage, `tsc --noEmit` clean under the strict config |
 | agent guardrails | 11 hooks + the mode gate, **398 tests** |
 | how the tests were chosen | every test that exercises the slice and needs at most a few more files joined it; then the copy's own suite was run and **any test that does not pass here was left out** (those read files of the private monorepo: contract JSON, docs, the API database harness) |
 | CI | lint, format, types and tests for both stacks; SonarQube Cloud (Python + TypeScript); CodeQL; OpenSSF Scorecard; TruffleHog over the full history; Dependabot; every action pinned to a commit SHA |
@@ -232,13 +232,13 @@ Decisions are written down before or as they are made:
 # backend (Python 3.14, uv)
 cd backend
 uv sync
-uv run pytest            # 2,974 tests, no Redis or database needed (fakeredis)
+uv run pytest            # 3,090 tests, no Redis or database needed (fakeredis)
 uv run mypy && uv run ruff check .
 
 # frontend (Node 22, pnpm)
 pnpm install
 pnpm --filter web type-check
-pnpm --filter web test   # 1,256 tests
+pnpm --filter web test   # 1,262 tests (6 of them property-based, fast-check)
 ```
 
 ## The full system (private), measured
