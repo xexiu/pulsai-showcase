@@ -126,6 +126,7 @@ GATE_HOOKS: Final[frozenset[str]] = frozenset(
         "sot_composition_guard.py",
         "keep_in_sync_guard.py",
         "no_new_noqa_guard.py",
+        "documentation_room_guard.py",  # owner 2026-11-07: deleted documentation is never room under the size cap
         "suppression_guard.py",
         "investigate_before_gate_guard.py",
         "timeframe_band_guard.py",

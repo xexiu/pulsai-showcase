@@ -3,9 +3,10 @@
 IMPORTERS/CALLERS: scripts/check_touched_debt.py (the ``duplicate-definition`` touch row),
 scripts/verify.sh (``--tree`` ratchet), .claude/hooks/one_definition_guard.py (PreToolUse, at the
 moment the definition is written), src/lib/quality_gates/recompute_in_loop.py and explicit_any.py (the shared
-tree door ``ratchet_over_head``), tests/scripts/test_concept_definitions.py. AFFECTED API: none
-(library + CLI; ``--tree`` exits 1 when the count rises or falls unrecorded). DATA SCHEMAS: reads
-scripts/concept_owners.json (``concepts[]``: concept, owner, also_owned_by, functions, enum_members).
+tree door ``ratchet_over_head``), tests/scripts/test_concept_definitions.py and test_control_flow_idioms.py. AFFECTED
+API: none (library + CLI; ``--tree`` exits 1 when the count rises or falls unrecorded, 2 when the control-flow canary
+fails; ``--idioms`` lists every loop that sleeps). DATA SCHEMAS: reads scripts/concept_owners.json (``concepts[]``:
+concept, owner, also_owned_by, functions, enum_members, structures -- an idiom row owns ``poll-loop`` and the like).
 
 WHY (owner, 2026-09-24): "Could be that I'm observing LOTS of duplicates for certifications ... No
 SoT, centralized, shared? ... why hook wasnt fired for DRY, SoT, SRP violations ... FIX, proactive,
@@ -42,12 +43,13 @@ import argparse
 import ast
 import json
 import sys
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from src.lib.quality_gates.control_flow_idioms import CANARY_PATH, SleepSite, canary_holds, idiom_tags, node_name, sleep_sites, tag_idiom
 from src.lib.quality_gates.ratchet_touch import ARCHIVE_SEGMENT, git, text_key, write_json_atomic
 
 _API = Path(__file__).resolve().parents[3]
@@ -157,7 +159,14 @@ REGISTRY_REL = REGISTRY_PATH.relative_to(_API.parents[1]).as_posix()
 #: -> 974 (10-28 ENGINE-PERF-BUGS lock: f635c7da1 already read 974, a fall left unlocked; the commit's tree reads the same).
 #: -> 973 (10-29 NEWS-ARMS lock: MEASURED on HEAD 1351d919d by verify --fast 2f-def, a fall since the 10-28 lock left
 #: unlocked; this commit's tree reads the same).
-BASELINE_FINDINGS = 973
+#: -> 1044 (11-07 GATE-IDIOMS), NOT new debt -- existing debt newly SEEN: every loop that sleeps is a structure now
+#: (control_flow_idioms), and the four idiom rows (poll / retry / pace / schedule) make 77 hand-written loops outside their
+#: homes findings, one per loop; the other 967 are the same-name / registry findings (973 at the last lock, the fall since
+#: never locked). Measured by `--list` over the working tree the commit carries. Paid on touch, a timing test with each.
+#: -> 1037 (11-08 WORDS-WRITTEN 1, the cross-coin batch: engine_loop.Engine.run's schedule loop moved onto
+#: scheduling.run_then_wait with its timing test; the other 6 a fall left unlocked; measured on HEAD with only this
+#: commit's diff applied, in a scratch worktree).
+BASELINE_FINDINGS = 1034
 
 
 #: A STRUCTURE the registry can own, matched by shape rather than name (owner, 2026-10-12: "ready for future exchanges?
@@ -227,27 +236,28 @@ def _is_epoch_ms_conversion(node: ast.AST) -> bool:
     return divides_ns and as_integers
 
 
-def _structures(tree: ast.Module) -> frozenset[str]:
-    found: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.While) and _is_reconnect_loop(node):
-            found.add(RECONNECT_LOOP)
-        elif _is_epoch_ms_conversion(node):
-            found.add(EPOCH_MS_CONVERSION)
-    return frozenset(found)
+def _structures(tree: ast.Module, lines: Sequence[str] = ()) -> frozenset[str]:
+    """The code shapes a registry row can own: the reconnect loop, the epoch-ms conversion, and one tag per loop that
+    sleeps (control_flow_idioms, GATE-IDIOMS: ``poll-loop@OilPart._served``) -- a reconnect loop is never also a retry."""
+    found: set[str] = {EPOCH_MS_CONVERSION} if any(_is_epoch_ms_conversion(node) for node in ast.walk(tree)) else set()
+    if _reconnect_loops(tree):
+        found.add(RECONNECT_LOOP)
+    return frozenset(found) | idiom_tags(idiom_sites(tree, lines))
+
+
+def _reconnect_loops(tree: ast.Module) -> list[ast.While]:
+    return [node for node in ast.walk(tree) if isinstance(node, ast.While) and _is_reconnect_loop(node)]
+
+
+def idiom_sites(tree: ast.Module, lines: Sequence[str]) -> list[SleepSite]:
+    """Every loop that sleeps (control_flow_idioms), the websocket reconnect loops left out -- RECONNECT_LOOP owns them;
+    the one call both the gate's tags and ``--idioms`` read, so the listing can never disagree with the gate."""
+    return sleep_sites(tree, lines, skip=_reconnect_loops(tree))
 
 
 def in_scope(path: str) -> bool:
     """Whether a repo-relative path is a Python file this detector judges (inside SCOPE_PREFIXES, no excluded segment)."""
     return path.endswith(".py") and path.startswith(SCOPE_PREFIXES) and not any(s in path for s in EXCLUDED_SEGMENTS)
-
-
-def _base_name(node: ast.expr) -> str:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
-    return ""
 
 
 def definitions_in(source: str) -> Definitions:
@@ -261,7 +271,7 @@ def definitions_in(source: str) -> Definitions:
     for node in tree.body:
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             functions.add(node.name)
-        elif isinstance(node, ast.ClassDef) and ENUM_BASES & {_base_name(b) for b in node.bases}:
+        elif isinstance(node, ast.ClassDef) and ENUM_BASES & {node_name(b) for b in node.bases}:
             members = frozenset(
                 target.id
                 for stmt in node.body
@@ -270,7 +280,7 @@ def definitions_in(source: str) -> Definitions:
                 if isinstance(target, ast.Name) and not target.id.startswith("_")
             )
             enums.append((node.name, members))
-    return Definitions(frozenset(functions), tuple(enums), _structures(tree))
+    return Definitions(frozenset(functions), tuple(enums), _structures(tree, source.splitlines()))
 
 
 def load_registry(path: Path = REGISTRY_PATH) -> tuple[Concept, ...]:
@@ -342,14 +352,15 @@ def findings_for(path: str, defs: Definitions, index: Mapping[str, Definitions],
             continue
         named = sorted(n for n in defs.functions if n.lstrip("_") in concept.functions)
         carried = sorted(n for n, m in defs.enums if concept.enum_members and concept.enum_members <= m)
-        shaped = sorted(defs.structures & concept.structures)
+        shaped = sorted(s for s in defs.structures if tag_idiom(s) in concept.structures)
         home = concept.home or sorted(concept.owners)[0]
         found.extend(f"{path}: {name} re-defines '{concept.concept}', which lives in {home} -- import it" for name in named + carried + shaped)
     return found
 
 
 #: The parsed-definitions cache (check_touched_debt passes git_cache_file(repo, DEFINITIONS_CACHE)): text hash -> row.
-DEFINITIONS_CACHE = "pulsai-concept-definitions.json"
+#: v2 (GATE-IDIOMS): rows now carry one structure tag per sleeping loop, so a v1 row of an unchanged text would hide them.
+DEFINITIONS_CACHE = "pulsai-concept-definitions-v2.json"
 #: Below this many unparsed texts the parse runs inline; a process pool costs more than it saves.
 PARSE_POOL_FROM = 200
 
@@ -451,7 +462,10 @@ def tree_findings(index: Mapping[str, Definitions], registry: Iterable[Concept])
 
 def ratchet_tree(repo: Path, baseline: int = BASELINE_FINDINGS) -> int:
     """The HEAD ratchet: 1 when the finding count moved off `baseline` either way (a rise is a new second home, a fall must
-    be locked), 0 when it holds."""
+    be locked), 0 when it holds; 2 when the idiom canary fails -- the count would then be measuring nothing."""
+    if not canary_holds():
+        print(f"one definition: the control-flow canary ({CANARY_PATH.name}) no longer reads as three polls -- this run measured nothing")
+        return 2
     found = tree_findings(index_from_sources(sources_at_ref(repo, "HEAD")), registry_at_ref(repo, "HEAD"))
     print(f"one definition: {len(found)} findings (baseline {baseline})")
     if len(found) > baseline:
@@ -468,8 +482,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
     parser.add_argument("--tree", action="store_true", help="ratchet the total over HEAD (verify.sh)")
     parser.add_argument("--list", action="store_true", help="print every finding over the working tree")
+    parser.add_argument("--idioms", action="store_true", help="print every loop that sleeps, unclassified ones included")
     parser.add_argument("--repo-root", type=Path, default=_API.parents[1])
     args = parser.parse_args(argv)
+    if args.idioms:
+        for path, text in sorted(sources_on_disk(args.repo_root).items()):
+            try:
+                tree = ast.parse(text)
+            except SyntaxError:
+                continue
+            for site in idiom_sites(tree, text.splitlines()):
+                print(f"{path}:{site.line} {site.idiom} {site.function}")
+        return 0
     if args.list:
         for line in tree_findings(index_from_sources(sources_on_disk(args.repo_root)), load_registry()):
             print(line)

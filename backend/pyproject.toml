@@ -7,10 +7,12 @@ license = "MIT"
 dependencies = [
     "anthropic==0.89.0",
     "ccxt==4.5.88",
+    "celery==5.6.3",
     "fastapi==0.135.3",
     "google-genai==1.70.0",
     "groq==1.1.2",
     "httpx==0.28.1",
+    "itsdangerous==2.2.0",
     "numba==0.65.0",
     "numpy==2.4.6",
     "openai==2.30.0",
@@ -20,6 +22,7 @@ dependencies = [
     "prometheus-client==0.25.0",
     "pydantic==2.12.5",
     "pydantic-settings==2.15.0",
+    "pyjwt==2.15.1",
     "pyyaml==6.0.3",
     "redis==6.4.0",
     "scikit-learn==1.9.0",
@@ -42,6 +45,17 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "unit: Unit tests (fast, no external deps)",
+    "integration: Integration tests (may use database)",
+    "db: Tests requiring a live database marker selection",
+    "slow: Slow tests (ML training, backtesting)",
+    "e2e: End-to-end tests",
+    "asyncio: Async tests using pytest-asyncio",
+    "anyio: Async tests using anyio",
+    "no_parallel: Must run serially (shares DB/Redis state)",
+    "real_signal_roster: Opt out of the autouse tier-scan stub so the roster wiring runs for real",
+]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = [
@@ -96,10 +110,15 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
-    "S", "ANN", "ARG", "N806", "N803", "E501", "ERA001", "SLF001", "PT011",
+    "S101", "ANN", "ARG", "N806", "N803", "E501", "ERA001",
     "PLR2004", "PLR0913", "PLR0915",  # literal assertions and fixture-heavy helpers are correct test design
     "DTZ", "TRY", "PTH123", "RUF012", "SIM102",
 ]
+"src/shared/math/capital_selection_rank.py" = ["UP047"]
+"src/infrastructure/exceptions.py" = ["F403"]  # the facade re-exports src.shared.exceptions.__all__ so the list lives once
+"src/application/billing/stripe_prices.py" = ["TC001", "TC002"]
+"src/workers/**/*.py" = ["ARG001"]
+"src/workers/celery_app.py" = ["E402"]
 # X / y / X_train is the standard ML naming; numpy / polars are runtime imports; training entry points take 6-8 params
 "src/infrastructure/ml/**/*.py" = ["N806", "N803", "TC002", "TC003", "PLR0913", "PLR0912"]
 "src/domain/services/edge_lifecycle/capital_cert_headline.py" = ["UP047"]  # owes a rename that ripples into a sibling module
@@ -132,6 +151,6 @@ warn_unreachable = true
 # third-party packages without type stubs or a py.typed marker
 module = [
     "ccxt", "ccxt.*", "pandas", "pandas.*", "numpy.*", "polars.*", "scipy.*", "orjson.*",
-    "prometheus_client", "prometheus_client.*", "numba", "numba.*", "sklearn", "sklearn.*",
+    "prometheus_client", "prometheus_client.*", "numba", "numba.*", "sklearn", "sklearn.*", "celery", "celery.*",
 ]
 ignore_missing_imports = true

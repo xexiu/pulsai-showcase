@@ -62,6 +62,19 @@ class TestAQuotedStringIsOneArgumentNotManyCommands:
         assert executable_segments("git commit -m 'feat: x\n\n./scripts/run.sh all\n'") == []
 
 
+class TestTheOneSplitterKeepsBackgroundLongCommandGuardsRules:
+    """GATE-TRANSCRIPTS 3/n: background_long_command_guard held its own copy of split_segments, and the copy had drifted
+    AHEAD of this home on two rules. One splitter now, with both."""
+
+    def test_a_backslash_inside_single_quotes_is_literal_so_the_quote_still_closes(self) -> None:
+        # bash: 'a\' is the two characters a and \ -- the quote closes, and the `;` separates the next command.
+        assert invokes("echo 'a\\' ; ./scripts/run.sh all", _RUN_SH) is True
+
+    def test_an_unbalanced_quote_over_splits_rather_than_swallowing_a_real_run(self) -> None:
+        # A shell would reject the line; the conservative failure is a false block, never a silent miss.
+        assert invokes('echo "unterminated; ./scripts/run.sh all', _RUN_SH) is True
+
+
 class TestRealSeparatorsStillSplit:
     def test_the_surviving_segment_is_the_real_invocation(self) -> None:
         segments = executable_segments("git add a.py && ./scripts/run.sh all")

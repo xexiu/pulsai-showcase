@@ -47,6 +47,8 @@ import tempfile
 from dataclasses import dataclass
 from typing import Final
 
+from _hook_deny import print_tool_denial
+
 HOOK_EVENT = "PreToolUse"
 HOOK_MATCHER = "Bash"
 
@@ -458,17 +460,7 @@ def main() -> int:
     seen = _blocks_so_far(path)
     _record(path, seen + 1)
 
-    print(
-        json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": _REASON.format(problem=problem),
-                }
-            }
-        )
-    )
+    print_tool_denial(_REASON.format(problem=problem))
     return 0
 
 

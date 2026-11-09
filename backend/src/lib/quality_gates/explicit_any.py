@@ -136,7 +136,10 @@ _API = Path(__file__).resolve().parents[3]
 #: 5757 -> 5754 (10-24 lock, LIVE-SOL-BOTH's gate run, measured on the tree that commit carries).
 #: 5753 -> 5749 (10-29 NEWS-ARMS calendar fix: economic_calendar's dashboard rows a dict[str, str | float], its Any
 #: import gone; measured at the commit's own tree).
-BASELINE_ANY_REFERENCES = 5732
+#: 5732 -> 5722 (11-08 WORDS-WRITTEN 1, the cross-coin batch: fork_safe_session's ccxt hook typed by the two fields it
+#: sets (CcxtSessionSlots); the other 9 a fall left unlocked, FEED-FALLBACK's casts among them; measured on HEAD with only
+#: this commit's diff applied, in a scratch worktree).
+BASELINE_ANY_REFERENCES = 5722
 #: Liveness: a scope mistake that reads (almost) nothing must not pass as a clean tree.
 MIN_TREE_FILES = 1000
 _TYPING_MODULES = frozenset({"typing", "typing_extensions"})

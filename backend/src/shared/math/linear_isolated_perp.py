@@ -11,7 +11,20 @@ the bankruptcy price moved toward the entry by the maintenance margin rate -- an
 isolated margin is used up. The venue closes a liquidated position against the bankruptcy price and keeps any surplus
 for its insurance fund, so the trader loses exactly the margin (exchange liquidation docs: Bybit / BingX / Mudrex).
 The backtest triggers at the first and fills at the second.
+
+A STOP SET PAST THE LIQUIDATION PRICE (STOP-REST, 2026-11-08) rests STOP_INSIDE_LIQUIDATION_GAP inside it, toward the
+entry: both fire on the mark price, so the stop must be first. ``stop_rest_price`` is that price's one home -- read by the
+live executor (order_shape.inside_liq), the replay's chart (ModelBookChart), the backtester's hard stop
+(backtester_exit_close_stop) and the re-entry grader (k_reentry_grade).
 """
+
+from src.shared.constants.backtest_leverage import STOP_INSIDE_LIQUIDATION_GAP
+
+
+def stop_rest_price(liquidation: float, side: int) -> float:
+    """Where the venue rests a stop the model set past ``liquidation``: STOP_INSIDE_LIQUIDATION_GAP inside it, toward
+    the entry (``side`` +1 long: above it; -1 short: below it)."""
+    return liquidation * (1 + side * STOP_INSIDE_LIQUIDATION_GAP)
 
 
 def _check_inputs(entry_price: float, leverage: int) -> None:

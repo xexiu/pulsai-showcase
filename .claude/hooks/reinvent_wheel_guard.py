@@ -35,8 +35,10 @@ import time
 from pathlib import Path
 from typing import Any
 
+from _hook_deny import print_tool_denial
+
 HOOK_DIR = Path(__file__).resolve().parent
-STATE = Path(os.environ.get("REINVENT_WHEEL_STATE", HOOK_DIR / ".reinvent_wheel_state.json"))
+STATE =Path(os.environ.get("REINVENT_WHEEL_STATE", HOOK_DIR / ".reinvent_wheel_state.json"))
 SOT_CONFIG = Path(os.environ.get("REINVENT_WHEEL_SOT", HOOK_DIR / "reinvent_wheel_sot.json"))
 
 _GENERIC = frozenset(
@@ -501,18 +503,7 @@ def should_block_new_write(
 
 
 def _deny(reason: str) -> None:
-    print(
-        json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": reason,
-                }
-            }
-        )
-    )
-    print(reason, file=sys.stderr)
+    print_tool_denial(reason)
 
 
 def main() -> int:

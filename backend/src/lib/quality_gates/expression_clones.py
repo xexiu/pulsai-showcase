@@ -112,7 +112,9 @@ _ROW_FIELDS: Final = 4
 #: 981 -> 975 (10-23 lock, measured at 9952f6df1).
 #: 975 -> 973 (10-23 SWITCH-LUCK-CHECK at the commit's own tree: the third drawdown copy and the panel builder copy gone).
 #: 973 -> 971 (10-24 lock, LIVE-SOL-BOTH's gate run, measured on the tree that commit carries).
-BASELINE_CLONE_GROUPS: Final = 971
+#: 971 -> 967 (11-07 GATE-IDIOMS, measured by test_the_tree_ratchet_is_current on the tree the commit carries: concept_
+#: definitions._base_name and constant_clones._target one home each, vrp_screen's retry and titan's schedule on theirs).
+BASELINE_CLONE_GROUPS: Final = 967
 
 Site = tuple[str, str]  # (repo path, function name)
 #: One candidate expression in one function: (key, function, line, key of the nearest candidate around it or "").

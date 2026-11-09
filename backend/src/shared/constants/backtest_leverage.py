@@ -87,8 +87,8 @@ BACKTEST_TIERED_MMR_NOTIONAL_THRESHOLD_USD: Final[float] = 150_000.0
 BACKTEST_EXIT_TYPE_LIQUIDATION: Final[str] = "liquidation"
 
 # A stop beyond the liquidation price rests this far inside it: both fire on the mark price, so the stop must be first
-# (Lighter: 'a stop-loss with a trigger price worse than the liquidation price will not trigger'). One home for the live
-# executor (order_shape.inside_liq, LIQ_GAP) and the backtest that must mimic it (backtester_exit_close_stop).
+# (Lighter: 'a stop-loss with a trigger price worse than the liquidation price will not trigger'). Read through ONE
+# price, linear_isolated_perp.stop_rest_price: the live executor, the replay's chart, the backtest and the grader.
 STOP_INSIDE_LIQUIDATION_GAP: Final[float] = 0.002
 
 # An honest mark-to-market drawdown at or beyond this % means the ACCOUNT WAS WIPED, whatever the

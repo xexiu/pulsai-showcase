@@ -41,6 +41,8 @@ DEFAULT_BACKTEST_DATASETS_PATH: Path = API_ROOT_PATH / "data" / "backtest_datase
 # A venue's closed bars, kept so a grade reads them before it asks the venue (infrastructure/exchange/bar_store):
 #   data/venue_bars/{venue}_{coin}_{resolution}.parquet  - one unbroken run of closed bars, extended on each read
 DEFAULT_VENUE_BARS_PATH: Path = API_ROOT_PATH / "data" / "venue_bars"
+DEFAULT_GRADED_TRADES_PATH: Final = API_ROOT_PATH / "data" / "live" / "graded_trades"
+DEFAULT_OPTION_CHAINS_PATH: Path = API_ROOT_PATH / "data" / "option_chains"
 
 # A forecaster's fitted parameters, kept by their inputs' content (sol_v2_volatility_forecasts.arma_params, joblib.Memory):
 #   data/fit_cache/joblib/...  - one entry per fit; a refit fitted once is never fitted again

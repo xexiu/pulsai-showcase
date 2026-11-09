@@ -19,6 +19,9 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov'],
       include: ['src/**'],
+      // Same scope as the monorepo (docs/05-testing/COVERAGE_REQUIREMENTS.md): components are covered by
+      // component / E2E tests, Plotly glue by chart QA, and barrels hold no logic.
+      exclude: ['src/components/**', 'src/utils/plotly-chart-helpers/**', '**/index.ts'],
     },
   },
   resolve: {

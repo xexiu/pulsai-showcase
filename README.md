@@ -165,7 +165,7 @@ sequenceDiagram
 
 | | monorepo | shipped here |
 |---|---|---|
-| hooks | 153, with 152 test files | **11 guards + the central mode gate**, 7 helpers, **396 tests** (CI job `agent guardrails`) |
+| hooks | 153, with 152 test files | **11 guards + the central mode gate**, 8 helpers, **398 tests** (CI job `agent guardrails`) |
 | registrations | 184 | 16, in [`.claude/settings.json`](.claude/settings.json); every one routes through the mode gate |
 | skills | 39 | 10: `tdd`, `grill-me`, `diagnosing-bugs`, `domain-modeling`, `code-review`, `improve-codebase-architecture`, `feature-slice-tdd`, `handoff`, `to-spec`, `research` |
 | rules | 50 | 6, the policies these hooks enforce |
@@ -220,8 +220,10 @@ Decisions are written down before or as they are made:
 
 | | |
 |---|---|
-| backend | 185 source modules, **930 tests** (pytest), `mypy --strict` clean, ruff clean |
-| frontend | 133 source files, **421 tests** (vitest), `tsc --noEmit` clean under the strict config |
+| backend | 314 source modules, **2,974 tests** (pytest), 79% line coverage, `mypy --strict` clean, ruff clean |
+| frontend | 206 source files, **1,256 tests** (vitest), 85.6% line coverage, `tsc --noEmit` clean under the strict config |
+| agent guardrails | 11 hooks + the mode gate, **398 tests** |
+| how the tests were chosen | every test that exercises the slice and needs at most a few more files joined it; then the copy's own suite was run and **any test that does not pass here was left out** (those read files of the private monorepo: contract JSON, docs, the API database harness) |
 | CI | lint, format, types and tests for both stacks; SonarQube Cloud (Python + TypeScript); CodeQL; OpenSSF Scorecard; TruffleHog over the full history; Dependabot; every action pinned to a commit SHA |
 
 ## Run it
@@ -230,13 +232,13 @@ Decisions are written down before or as they are made:
 # backend (Python 3.14, uv)
 cd backend
 uv sync
-uv run pytest            # 930 tests, no Redis or database needed (fakeredis)
+uv run pytest            # 2,974 tests, no Redis or database needed (fakeredis)
 uv run mypy && uv run ruff check .
 
 # frontend (Node 22, pnpm)
 pnpm install
 pnpm --filter web type-check
-pnpm --filter web test   # 421 tests
+pnpm --filter web test   # 1,256 tests
 ```
 
 ## The full system (private), measured
@@ -274,7 +276,11 @@ Two export tools in the private repository, each tested:
   module pulled in 668 files through a package facade.
 - **Frontend:** the import closure from TypeScript's own resolver (`ts.resolveModuleName` with the project's
   tsconfig), so type-only imports are included and the copy type-checks.
-- **Tests:** a test is copied only when everything it imports is in the slice.
+- **Tests:** every test that imports the slice is a candidate, and joins when it needs at most a few more source files
+  (3 for the backend, 1 for the frontend). The copy's own suite then runs, and **a test that does not pass here is
+  dropped**: it reads something only the private monorepo has.
+- **Agent tooling:** the listed hooks, skills, rules and docs are copied with the sibling modules they import, so a
+  hook that gains a helper cannot leave the copy broken.
 - **What stays private:** the research lab (models, strategies, live trading engines) is excluded, and the export
   refuses any slice that reaches it. Some comments still name modules of the private monorepo; those modules are not
   part of this repository.

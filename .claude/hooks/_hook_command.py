@@ -66,8 +66,14 @@ def split_segments(command: str) -> list[str]:
     This module's docstring already described that failure for HEREDOCS (case 2) and the
     fix stopped there; a quoted ``-m`` argument is the commoner shape by far.
 
-    Quoting is deliberately shell-shaped and simple: a backslash escapes the next
-    character, and a quote character inside the OTHER quote style is literal.
+    Quoting is deliberately shell-shaped and simple: a backslash escapes the next character except
+    inside single quotes, where the shell escapes nothing, and a quote character inside the OTHER
+    quote style is literal. Unbalanced quotes fall back to the naive SEGMENT_SPLIT: a shell would
+    reject the line, and over-splitting (a false block) is the conservative failure, never
+    swallowing a real run into one unsplittable segment (a silent miss).
+
+    Both rules came from background_long_command_guard's own copy of this function (GATE-TRANSCRIPTS
+    3/n): the copy had drifted ahead of this home, so the copy's rules moved here and the copy went.
     """
     segments: list[str] = []
     current: list[str] = []
@@ -75,7 +81,7 @@ def split_segments(command: str) -> list[str]:
     index = 0
     while index < len(command):
         char = command[index]
-        if char == "\\" and index + 1 < len(command):
+        if char == "\\" and quote != "'" and index + 1 < len(command):
             current.append(char)
             current.append(command[index + 1])
             index += 2
@@ -99,6 +105,8 @@ def split_segments(command: str) -> list[str]:
             continue
         current.append(char)
         index += 1
+    if quote is not None:
+        return SEGMENT_SPLIT.split(command)
     segments.append("".join(current))
     return segments
 

@@ -85,7 +85,9 @@ def name_origins(tree: ast.Module, module: str) -> dict[str, str]:
     return origins
 
 
-def _target(stmt: ast.stmt) -> tuple[str, ast.expr] | None:
+def assigned_name(stmt: ast.AST) -> tuple[str, ast.expr] | None:
+    """A one-name assignment's (name, value) -- ``x = v`` or ``x: T = v``; None for any other node. Also read by
+    control_flow_idioms, which follows a sleep's amount back through a function's assignments."""
     if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
         return stmt.targets[0].id, stmt.value
     if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name) and stmt.value is not None:
@@ -134,7 +136,7 @@ def constant_occurrences(source: str, path: str) -> list[Occurrence]:
     origins = name_origins(tree, module_of(path))
     found: list[Occurrence] = []
     for stmt in tree.body:
-        target = _target(stmt)
+        target = assigned_name(stmt)
         if target is None or not _is_candidate(*target):
             continue
         if CLONE_OK in "\n".join(lines[stmt.lineno - 1 : (stmt.end_lineno or stmt.lineno)]):
@@ -143,4 +145,4 @@ def constant_occurrences(source: str, path: str) -> list[Occurrence]:
     return found
 
 
-__all__ = ["CLONE_OK", "MIN_LEAVES", "constant_occurrences", "module_of", "name_origins"]
+__all__ = ["CLONE_OK", "MIN_LEAVES", "assigned_name", "constant_occurrences", "module_of", "name_origins"]
