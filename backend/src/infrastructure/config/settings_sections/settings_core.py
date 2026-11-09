@@ -1,11 +1,16 @@
 """Settings mixin — Core Application + Database (sections 1-2)."""
 
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import AliasChoices, Field
 
+#: the local-dev database (docker-compose's postgres on localhost); refused outside development by Settings
+LOCAL_DEV_DATABASE_URL: Final = "postgresql+asyncpg://pulsai:pulsai_dev@localhost:5432/pulsai"
+
 
 class SettingsCoreMixin:
+    """The application's identity, environment and data stores (database and Redis URLs)."""
+
     # ═══════════════════════════════════════════════════════════════════════════
 
     app_name: str = "PulsAI API"
@@ -32,7 +37,7 @@ class SettingsCoreMixin:
 
     # ═══════════════════════════════════════════════════════════════════════════
 
-    database_url: str = "postgresql+asyncpg://pulsai:pulsai_dev@localhost:5432/pulsai"
+    database_url: str = LOCAL_DEV_DATABASE_URL
     redis_url: str = "redis://localhost:6379"
 
     # ═══════════════════════════════════════════════════════════════════════════

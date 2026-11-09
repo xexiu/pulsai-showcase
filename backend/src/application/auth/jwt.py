@@ -5,6 +5,7 @@ Handles JWT token creation and validation.
 Following security guidelines from docs/07-security/SECURITY_GUIDELINES.md
 """
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import uuid4
@@ -14,6 +15,8 @@ from pydantic import BaseModel, ConfigDict
 
 from src.infrastructure.config.settings import settings
 from src.shared.utils.datetime_utils import utc_now
+
+logger = logging.getLogger(__name__)
 
 # Token types
 TokenType = Literal["access", "refresh"]
@@ -97,7 +100,7 @@ class JWTService:
         now = utc_now()
         expire = now + timedelta(minutes=self.access_token_expire_minutes)
 
-        payload = {
+        payload: dict[str, object] = {
             "sub": user_id,
             "type": "access",
             "iat": now,
@@ -125,7 +128,7 @@ class JWTService:
         now = utc_now()
         expire = now + timedelta(days=self.refresh_token_expire_days)
 
-        payload = {
+        payload: dict[str, object] = {
             "sub": user_id,
             "type": "refresh",
             "iat": now,
@@ -189,11 +192,13 @@ class JWTService:
 
             # Check token type
             if payload.get("type") != expected_type:
+                logger.debug("jwt rejected: type %r, expected %r", payload.get("type"), expected_type)
                 return None
 
             exp_raw = payload.get("exp")
             iat_raw = payload.get("iat")
             if exp_raw is None or iat_raw is None:
+                logger.debug("jwt rejected: missing exp or iat claim")
                 return None
 
             exp_dt = exp_raw if isinstance(exp_raw, datetime) else datetime.fromtimestamp(exp_raw, tz=UTC)
@@ -211,30 +216,9 @@ class JWTService:
                 persist_refresh=persist_refresh,
             )
 
-        except jwt.PyJWTError:
-            return None
-
-    def decode_token_unverified(self, token: str) -> dict[str, Any] | None:
-        """
-        Decode token without verification (for inspection only).
-
-        WARNING: Do not use for authentication! Only for debugging/logging.
-
-        Args:
-            token: The JWT token to decode.
-
-        Returns:
-            Decoded payload dict or None if invalid format.
-        """
-        try:
-            payload: dict[str, Any] = jwt.decode(
-                token,
-                self.secret_key,
-                algorithms=[self.algorithm],
-                options={"verify_signature": False, "verify_exp": False},
-            )
-            return payload
-        except jwt.PyJWTError:
+        except jwt.PyJWTError as exc:
+            # The reason only (expired, bad signature, malformed) -- never the token itself.
+            logger.debug("jwt rejected: %s", type(exc).__name__)
             return None
 
 

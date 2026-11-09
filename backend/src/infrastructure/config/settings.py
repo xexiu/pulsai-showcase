@@ -25,12 +25,12 @@ Field index (sections) — implementation split across ``settings_sections/``:
 """
 
 from functools import lru_cache
-from typing import Self
+from typing import Self, cast
 
-from pydantic import computed_field, model_validator
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from src.infrastructure.config.settings_sections.settings_core import SettingsCoreMixin
+from src.infrastructure.config.settings_sections.settings_core import LOCAL_DEV_DATABASE_URL, SettingsCoreMixin
 from src.infrastructure.config.settings_sections.settings_integrations import SettingsIntegrationsMixin
 from src.infrastructure.config.settings_sections.settings_ops import SettingsOpsMixin
 from src.infrastructure.config.settings_sections.settings_ops_features import (
@@ -93,7 +93,6 @@ class Settings(
     # Derived Properties (cross-section)
     # ═══════════════════════════════════════════════════════════════════════════
 
-    @computed_field  # type: ignore[prop-decorator]
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""
@@ -180,17 +179,18 @@ class Settings(
         """Use long TTL default only in development when value is not explicitly set."""
         if not isinstance(data, dict):
             return data
+        values = cast("dict[str, object]", data)  # the raw input mapping: keys are field names
 
-        if data.get("access_token_expire_minutes") not in (None, ""):
-            return data
+        if values.get("access_token_expire_minutes") not in (None, ""):
+            return values
 
-        environment = str(data.get("environment", "development")).lower()
+        environment = str(values.get("environment", "development")).lower()
         if environment == "development":
-            merged_data = dict(data)
+            merged_data = dict(values)
             merged_data["access_token_expire_minutes"] = DEFAULT_DEVELOPMENT_ACCESS_TOKEN_EXPIRE_MINUTES
             return merged_data
 
-        return data
+        return values
 
     @model_validator(mode="after")
     def _default_clear_ohlcv_stream_redis_on_supervisor_start_in_dev(self) -> Self:
@@ -252,10 +252,15 @@ class Settings(
         return self
 
     @model_validator(mode="after")
-    def _enforce_secure_secret_key_in_non_dev(self) -> Self:
-        """Reject insecure default JWT secret outside development."""
-        if self.environment in {"production", "staging"} and self.secret_key == INSECURE_DEFAULT_SECRET_KEY:
+    def _enforce_no_local_defaults_in_non_dev(self) -> Self:
+        """Reject the committed local-dev defaults outside development: the insecure JWT secret, and the local database
+        URL (a deploy that forgot DATABASE_URL must fail at boot, not run on committed credentials)."""
+        if self.environment not in {"production", "staging"}:
+            return self
+        if self.secret_key == INSECURE_DEFAULT_SECRET_KEY:
             raise ValueError("secret_key must be set to a non-default value in staging/production")
+        if self.database_url == LOCAL_DEV_DATABASE_URL:
+            raise ValueError("database_url must be set (DATABASE_URL) in staging/production, not the local-dev default")
         return self
 
     @model_validator(mode="after")

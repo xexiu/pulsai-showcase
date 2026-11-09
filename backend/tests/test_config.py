@@ -8,10 +8,18 @@ import pytest
 
 from src.domain.enums import Exchange
 from src.infrastructure.config.settings import INSECURE_DEFAULT_SECRET_KEY, Settings, get_settings, settings
+from src.infrastructure.config.settings_sections.settings_core import LOCAL_DEV_DATABASE_URL
 from src.shared.constants.timeframes import TIMEFRAME_REGISTRY
 
 # Non-dev Settings() must pass a public FRONTEND_URL (production validator).
 _TEST_PUBLIC_FRONTEND_URL = "https://pulsai.live"
+
+
+@pytest.fixture(autouse=True)
+def _deployed_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Non-dev Settings() refuse the local-dev database URL, as a real deploy that sets DATABASE_URL never hits; the
+    tests about that default pass or clear it themselves."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://pulsai:deployed@db.internal:5432/pulsai")
 
 
 def test_settings_singleton() -> None:
@@ -165,6 +173,25 @@ def test_settings_allows_default_secret_in_development(monkeypatch: pytest.Monke
     test_settings = Settings(environment="development")
 
     assert test_settings.secret_key == INSECURE_DEFAULT_SECRET_KEY
+
+
+@pytest.mark.parametrize("environment", ["production", "staging"])
+def test_settings_rejects_the_committed_local_database_url_outside_development(environment: str) -> None:
+    """A deploy that forgot DATABASE_URL must fail at boot, not run on the committed local-dev credentials (the same
+    rule the secret key already follows; SonarQube secrets:S6698 flagged the default, 2026-11-06)."""
+    with pytest.raises(ValueError, match="database_url"):
+        Settings(
+            environment=environment,
+            secret_key="x" * 64,
+            frontend_url=_TEST_PUBLIC_FRONTEND_URL,
+            database_url=LOCAL_DEV_DATABASE_URL,
+        )
+
+
+def test_settings_keeps_the_local_database_url_in_development(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    assert Settings(environment="development").database_url == LOCAL_DEV_DATABASE_URL
 
 
 def test_settings_rejects_localhost_frontend_url_in_production() -> None:

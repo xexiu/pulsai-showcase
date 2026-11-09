@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
-import pytest  # noqa: TC002
+from typing import TYPE_CHECKING
 
 from src.infrastructure.config.settings import Settings
 from src.infrastructure.config.settings_sections.settings_ops_platform import SettingsOpsPlatformMixin
 from src.infrastructure.config.settings_sections.settings_ops_vendors import SettingsOpsVendorsMixin
 from src.infrastructure.config.settings_sections.settings_ops_workers import SettingsOpsWorkersMixin
+
+if TYPE_CHECKING:
+    import pytest
+
+#: production Settings refuse the committed local-dev database URL; a deploy always sets its own
+_DEPLOYED_DATABASE_URL = "postgresql+asyncpg://pulsai:deployed@db.internal:5432/pulsai"
 
 
 def test_settings_ops_rate_limits_mixin_defaults() -> None:
@@ -46,6 +52,7 @@ def test_production_backtest_historical_cache_ttl_stays_twenty_four_hours(
         environment="production",
         secret_key="test-production-secret-key-with-sufficient-length",
         frontend_url="https://pulsai.live",
+        database_url=_DEPLOYED_DATABASE_URL,
     )
     assert s.backtest_response_cache_historical_ttl_seconds == 86_400
 
@@ -80,6 +87,7 @@ def test_clear_ohlcv_stream_redis_on_supervisor_start_off_in_production(
         environment="production",
         secret_key="test-production-secret-key-with-sufficient-length",
         frontend_url="https://pulsai.live",
+        database_url=_DEPLOYED_DATABASE_URL,
     )
     assert s.clear_ohlcv_stream_redis_on_supervisor_start is False
 
